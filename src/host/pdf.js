@@ -6,6 +6,7 @@
  * scanned-page OCR (macOS Vision), and DOCX -> HTML/text.
  */
 import { spawn } from 'node:child_process';
+import { t } from './i18n.js';
 import { accessSync, chmodSync, constants, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join } from 'node:path';
@@ -33,12 +34,12 @@ function pdfFailure(error) {
   const name = error?.name || '';
   const message = String(error?.message || error);
   if (name === 'PasswordException' || /password|encrypted/i.test(message)) {
-    return httpError(423, 'encrypted', '这个 PDF 已加密或需要密码，无法读取。请先解除密码后再试。', error);
+    return httpError(423, 'encrypted', t('这个 PDF 已加密或需要密码，无法读取。请先解除密码后再试。'), error);
   }
   if (name === 'InvalidPDFException' || /Invalid PDF|structure|corrupt|bad xref|xref|Failed to parse PDF/i.test(message)) {
-    return httpError(422, 'corrupt-pdf', 'PDF 文件可能已损坏，已保留原文件。', error);
+    return httpError(422, 'corrupt-pdf', t('PDF 文件可能已损坏，已保留原文件。'), error);
   }
-  return httpError(422, 'pdf-failed', `PDF 处理失败：${message}`, error);
+  return httpError(422, 'pdf-failed', t('PDF 处理失败：{0}', message), error);
 }
 
 /** @param {Uint8Array} data */
@@ -162,7 +163,7 @@ function round(value) {
  */
 export async function pdfToTxt(path, output) {
   const result = await extractPdf(path);
-  const text = result.pages.map((page) => `===== 第 ${page.page} 页 =====\n${page.text}`).join('\n\n');
+  const text = result.pages.map((page) => t('===== 第 {0} 页 =====\n{1}', page.page, page.text)).join('\n\n');
   writeFileSync(output, `\uFEFF${text}\n`, 'utf8');
   return { output, pageCount: result.pageCount, chars: text.length };
 }
@@ -176,7 +177,7 @@ export function pdfTables(extraction) {
   const allRows = [];
   for (const page of extraction.pages) {
     if (page.items.length === 0) {
-      allRows.push([`（第 ${page.page} 页没有可提取文字，可能是扫描版，请使用 OCR）`]);
+      allRows.push([t('（第 {0} 页没有可提取文字，可能是扫描版，请使用 OCR）', page.page)]);
       continue;
     }
     const lines = [];
@@ -218,7 +219,7 @@ export async function pdfToXlsx(path, output) {
   const workbook = XLSX.utils.book_new();
   const sheet = XLSX.utils.aoa_to_sheet(rows);
   sheet['!cols'] = new Array(Math.max(1, rows[0]?.length || 1)).fill({ wch: 18 });
-  XLSX.utils.book_append_sheet(workbook, sheet, 'PDF 表格');
+  XLSX.utils.book_append_sheet(workbook, sheet, t('PDF 表格'));
   writeFileSync(output, XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer', compression: true }));
   const textChars = extraction.pages.reduce((sum, page) => sum + page.text.length, 0);
   return {
@@ -227,7 +228,7 @@ export async function pdfToXlsx(path, output) {
     rows: rows.length,
     columns: rows[0]?.length || 0,
     textChars,
-    warning: textChars < 20 ? '这份 PDF 几乎没有可提取文字，可能是扫描版；请使用 OCR。' : undefined,
+    warning: textChars < 20 ? t('这份 PDF 几乎没有可提取文字，可能是扫描版；请使用 OCR。') : undefined,
   };
 }
 
@@ -244,7 +245,7 @@ export async function pdfToDocx(path, output) {
     if (index > 0) children.push(new Paragraph({ children: [new PageBreak()] }));
     const lines = page.text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
     if (lines.length === 0) {
-      children.push(new Paragraph({ children: [new TextRun({ text: '（本页没有可提取文字）', italics: true })] }));
+      children.push(new Paragraph({ children: [new TextRun({ text: t('（本页没有可提取文字）'), italics: true })] }));
     } else {
       for (const line of lines) {
         children.push(new Paragraph({
@@ -255,7 +256,7 @@ export async function pdfToDocx(path, output) {
     }
   });
   const doc = new Document({
-    creator: 'DeepSeek Harness 文档查看器',
+    creator: t('DeepSeek Harness 文档查看器'),
     title: basename(path, extname(path)),
     sections: [{ properties: {}, children }],
   });
@@ -275,7 +276,7 @@ export function ensureExecutable(path) {
     try {
       chmodSync(path, statSync(path).mode | 0o111);
     } catch (error) {
-      throw httpError(503, 'ocr-unavailable', `OCR 组件没有执行权限，也无法自动修复。可以手动运行：chmod +x "${path}"`, error);
+      throw httpError(503, 'ocr-unavailable', t('OCR 组件没有执行权限，也无法自动修复。可以手动运行：chmod +x "{0}"', path), error);
     }
   }
 }
@@ -288,11 +289,11 @@ export function ensureExecutable(path) {
  */
 export async function ocrDocument(path, options = {}) {
   if (process.platform !== 'darwin') {
-    throw httpError(503, 'ocr-unavailable', 'OCR 使用 macOS Vision，当前系统不支持。');
+    throw httpError(503, 'ocr-unavailable', t('OCR 使用 macOS Vision，当前系统不支持。'));
   }
   const helper = join(HERE, '..', '..', 'bin', 'vision-ocr');
   if (!existsSync(helper)) {
-    throw httpError(503, 'ocr-unavailable', '本机 OCR 组件未安装，无法识别扫描件。请重新安装文档查看器。');
+    throw httpError(503, 'ocr-unavailable', t('本机 OCR 组件未安装，无法识别扫描件。请重新安装文档查看器。'));
   }
   ensureExecutable(helper);
   const work = mkdtempSync(join(tmpdir(), 'dsh-doc-ocr-'));
@@ -304,7 +305,7 @@ export async function ocrDocument(path, options = {}) {
       const info = await inspectPdf(path);
       pageNumbers = parsePageList(options.pages, info.pageCount);
       if (options.maxPages && pageNumbers.length > options.maxPages) {
-        throw httpError(413, 'ocr-too-many-pages', `要识别 ${pageNumbers.length} 页，超过单次上限 ${options.maxPages} 页。请用页码范围分批识别，例如 1-${options.maxPages}。`);
+        throw httpError(413, 'ocr-too-many-pages', t('要识别 {0} 页，超过单次上限 {1} 页。请用页码范围分批识别，例如 1-{2}。', pageNumbers.length, options.maxPages, options.maxPages));
       }
       if (pageNumbers.length < info.pageCount) {
         const source = await PDFDocument.load(readFileSync(path), { ignoreEncryption: false });
@@ -319,16 +320,16 @@ export async function ocrDocument(path, options = {}) {
       let stderr = '';
       const timer = setTimeout(() => {
         child.kill('SIGTERM');
-        reject(httpError(504, 'ocr-timeout', 'OCR 超时，请缩小页范围后重试。'));
+        reject(httpError(504, 'ocr-timeout', t('OCR 超时，请缩小页范围后重试。')));
       }, 180_000);
       child.stderr.on('data', (chunk) => { stderr += chunk; });
       child.on('error', (error) => {
         clearTimeout(timer);
-        reject(httpError(503, 'ocr-failed', `OCR 组件启动失败：${error.message}`, error));
+        reject(httpError(503, 'ocr-failed', t('OCR 组件启动失败：{0}', error.message), error));
       });
       child.on('close', (code) => {
         clearTimeout(timer);
-        if (code !== 0) reject(httpError(422, 'ocr-failed', stderr.trim() || `OCR 失败（退出码 ${code}）`));
+        if (code !== 0) reject(httpError(422, 'ocr-failed', stderr.trim() || t('OCR 失败（退出码 {0}）', code)));
         else resolve();
       });
     });
@@ -338,7 +339,7 @@ export async function ocrDocument(path, options = {}) {
     return {
       pages,
       engine: payload.engine || 'macOS Vision',
-      text: pages.map((page) => `===== 第 ${page.page} 页 =====\n${page.text}`).join('\n\n'),
+      text: pages.map((page) => t('===== 第 {0} 页 =====\n{1}', page.page, page.text)).join('\n\n'),
     };
   } finally {
     rmSync(work, { recursive: true, force: true });
@@ -351,7 +352,7 @@ export async function ocrDocument(path, options = {}) {
  * @param {string} output
  */
 export async function mergePdfs(paths, output) {
-  if (!Array.isArray(paths) || paths.length < 2) throw httpError(400, 'need-two-pdfs', '合并至少需要两个 PDF 文件');
+  if (!Array.isArray(paths) || paths.length < 2) throw httpError(400, 'need-two-pdfs', t('合并至少需要两个 PDF 文件'));
   const merged = await PDFDocument.create();
   const sources = [];
   for (const path of paths) {
@@ -390,7 +391,7 @@ export async function splitPdf(path, outputDirectory, options = {}) {
     const doc = await PDFDocument.create();
     const pages = await doc.copyPages(source, range.map((page) => page - 1));
     for (const page of pages) doc.addPage(page);
-    const label = range.length === 1 ? `第${range[0]}页` : `${range[0]}-${range[range.length - 1]}页`;
+    const label = range.length === 1 ? t('第{0}页', range[0]) : t('{0}-{1}页', range[0], range[range.length - 1]);
     const output = uniquePath(outputDirectory, `${base}-${label}`, '.pdf');
     writeFileSync(output, await doc.save());
     outputs.push({ output, pages: range });
@@ -413,7 +414,7 @@ export async function deletePdfPages(path, output, pages) {
   }
   const remove = new Set(parseRanges(pages, source.getPageCount()).flat());
   const keep = source.getPageIndices().filter((index) => !remove.has(index + 1));
-  if (keep.length === 0) throw httpError(400, 'all-pages-removed', '不能删除全部页面，请保留至少一页。');
+  if (keep.length === 0) throw httpError(400, 'all-pages-removed', t('不能删除全部页面，请保留至少一页。'));
   const doc = await PDFDocument.create();
   const copied = await doc.copyPages(source, keep);
   for (const page of copied) doc.addPage(page);
@@ -438,17 +439,17 @@ export function parseRanges(expression, pageCount) {
     const token = part.trim();
     if (!token) continue;
     const match = /^(\d+)(?:\s*-\s*(\d+))?$/.exec(token);
-    if (!match) throw httpError(400, 'bad-pages', `页码格式不正确：${token}`);
+    if (!match) throw httpError(400, 'bad-pages', t('页码格式不正确：{0}', token));
     const start = Number(match[1]);
     const end = match[2] ? Number(match[2]) : start;
     if (start < 1 || end > pageCount || start > end) {
-      throw httpError(400, 'bad-pages', `页码 ${token} 超出范围（共 ${pageCount} 页）`);
+      throw httpError(400, 'bad-pages', t('页码 {0} 超出范围（共 {1} 页）', token, pageCount));
     }
     const group = [];
     for (let page = start; page <= end; page += 1) group.push(page);
     groups.push(group);
   }
-  if (groups.length === 0) throw httpError(400, 'bad-pages', '请指定页码');
+  if (groups.length === 0) throw httpError(400, 'bad-pages', t('请指定页码'));
   return groups;
 }
 
@@ -482,7 +483,7 @@ export async function docxToHtml(path) {
       messages: result.messages.map((message) => message.message).slice(0, 20),
     };
   } catch (error) {
-    throw httpError(422, 'docx-failed', `无法读取 Word 文档：${error instanceof Error ? error.message : String(error)}`, error);
+    throw httpError(422, 'docx-failed', t('无法读取 Word 文档：{0}', error instanceof Error ? error.message : String(error)), error);
   }
 }
 
@@ -496,7 +497,7 @@ export async function docxRawText(path) {
     const result = await mammoth.extractRawText({ path });
     return result.value.replace(/\n{3,}/g, '\n\n').trim();
   } catch (error) {
-    throw httpError(422, 'docx-failed', `无法读取 Word 文档：${error instanceof Error ? error.message : String(error)}`, error);
+    throw httpError(422, 'docx-failed', t('无法读取 Word 文档：{0}', error instanceof Error ? error.message : String(error)), error);
   }
 }
 

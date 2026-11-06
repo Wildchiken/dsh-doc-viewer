@@ -5,6 +5,7 @@
  * into the original, never by rebuilding it.
  */
 import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { t } from './i18n.js';
 import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join } from 'node:path';
 import { Document, Packer, PageBreak, Paragraph, TextRun } from 'docx';
@@ -70,7 +71,7 @@ const DEFAULT_TEXT_LIMIT = 20_000;
 
 /** @param {string} path */
 function assertExists(path) {
-  if (!fileExists(path)) throw httpError(404, 'not-found', `文件不存在：${path}`);
+  if (!fileExists(path)) throw httpError(404, 'not-found', t('文件不存在：{0}', path));
 }
 
 /**
@@ -86,22 +87,22 @@ export function documentKind(path) {
   if (container === 'zip') {
     if (zipKind === 'xlsx') return 'spreadsheet';
     if (zipKind === 'docx') return 'word';
-    throw unsupported(path, '压缩包或暂不支持的 Office 文档');
+    throw unsupported(path, t('压缩包或暂不支持的 Office 文档'));
   }
   if (container === 'ole') {
     if (WORD_EXTENSIONS.has(ext)) return 'word';
     if (ext === '.xls' || ext === '.et') return 'spreadsheet';
-    throw unsupported(path, '旧版 Office 二进制文档');
+    throw unsupported(path, t('旧版 Office 二进制文档'));
   }
-  if (container === 'binary') throw unsupported(path, '二进制文件');
-  if (ext === '.pdf') throw httpError(422, 'corrupt-pdf', 'PDF 文件可能已损坏，已保留原文件。');
+  if (container === 'binary') throw unsupported(path, t('二进制文件'));
+  if (ext === '.pdf') throw httpError(422, 'corrupt-pdf', t('PDF 文件可能已损坏，已保留原文件。'));
   if (SPREADSHEET_EXTENSIONS.has(ext)) return 'spreadsheet';
   return 'text';
 }
 
 /** @param {string} path @param {string} what */
 function unsupported(path, what) {
-  return httpError(415, 'unsupported', `暂不支持打开“${basename(path)}”（${what}）。可打开的类型：xlsx、xls、csv、tsv、et、pdf、docx、doc、wps 和文本文件。`);
+  return httpError(415, 'unsupported', t('暂不支持打开“{0}”（{1}）。可打开的类型：xlsx、xls、csv、tsv、et、pdf、docx、doc、wps 和文本文件。', basename(path), what));
 }
 
 /* ------------------------------------------------------------------ */
@@ -162,7 +163,7 @@ export async function openDocument(path, options = {}) {
     try {
       const [html, text] = await Promise.all([docxToHtml(normalized.path), docxRawText(normalized.path)]);
       const warnings = [];
-      if (normalized.converted) warnings.push({ code: 'legacy-word', message: '这是旧版 Word/WPS 文件，已在本机转换后预览，版式可能与原文件略有差异。' });
+      if (normalized.converted) warnings.push({ code: 'legacy-word', message: t('这是旧版 Word/WPS 文件，已在本机转换后预览，版式可能与原文件略有差异。') });
       return {
         kind: 'docx',
         path,
@@ -179,9 +180,9 @@ export async function openDocument(path, options = {}) {
     }
   }
   const { text, encoding } = readTextDocument(path);
-  const warnings = encoding !== 'utf-8' ? [{ code: 'encoding', message: `文本已按 ${encoding.toUpperCase()} 解码。` }] : [];
+  const warnings = encoding !== 'utf-8' ? [{ code: 'encoding', message: t('文本已按 {0} 解码。', encoding.toUpperCase()) }] : [];
   const truncated = text.length > MAX_TEXT_PREVIEW_CHARS;
-  if (truncated) warnings.push({ code: 'preview-truncated', message: `文件较大，这里只预览前 ${(MAX_TEXT_PREVIEW_CHARS / 1024 / 1024).toFixed(0)} MB 字符。` });
+  if (truncated) warnings.push({ code: 'preview-truncated', message: t('文件较大，这里只预览前 {0} MB 字符。', (MAX_TEXT_PREVIEW_CHARS / 1024 / 1024).toFixed(0)) });
   return {
     kind: 'text',
     path,
@@ -221,7 +222,7 @@ async function normalizeWord(path) {
     return { path: output, converted: true, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
   } catch (error) {
     rmSync(dir, { recursive: true, force: true });
-    throw httpError(422, 'word-convert-failed', `无法读取这个 Word/WPS 文件：${error instanceof Error ? error.message : String(error)}`, error);
+    throw httpError(422, 'word-convert-failed', t('无法读取这个 Word/WPS 文件：{0}', error instanceof Error ? error.message : String(error)), error);
   }
 }
 
@@ -238,18 +239,18 @@ export async function saveSpreadsheetCopy(ctx, request) {
   if (request.outputPath) return saveSheetsTo(ctx, request.sheets, request.outputPath, request);
   const format = String(request.format || 'xlsx').toLowerCase();
   const outputDirectory = ensureDir(request.outputDirectory ?? exportDirFor(request.sourcePath, request.workspaceRoot));
-  const sourceBase = request.sourcePath ? basename(request.sourcePath, extname(request.sourcePath)) : '工作簿';
-  const base = request.title || `${sourceBase}-已编辑`;
+  const sourceBase = request.sourcePath ? basename(request.sourcePath, extname(request.sourcePath)) : t('工作簿');
+  const base = request.title || t('{0}-已编辑', sourceBase);
   if (format === 'pdf') {
     const output = uniquePath(outputDirectory, base, '.pdf');
     const result = await sheetsToPdf(ctx, request.sheets, output, sourceBase);
     return { output, format, size: statSync(output).size, missingFonts: result.missingFonts || [], warnings: fontWarnings(result.missingFonts) };
   }
-  if (!['xlsx', 'xls', 'csv'].includes(format)) throw httpError(400, 'bad-format', `不支持的保存格式：${format}`);
+  if (!['xlsx', 'xls', 'csv'].includes(format)) throw httpError(400, 'bad-format', t('不支持的保存格式：{0}', format));
   const output = uniquePath(outputDirectory, base, `.${format}`);
   await writeSpreadsheet(request.sheets, output, format, { sheetName: request.options?.sheetName });
   const warnings = format === 'csv' && request.sheets.length > 1
-    ? [{ code: 'csv-one-sheet', message: `CSV 只能保存一个工作表，已保存“${request.options?.sheetName || request.sheets[0]?.name}”。` }]
+    ? [{ code: 'csv-one-sheet', message: t('CSV 只能保存一个工作表，已保存“{0}”。', request.options?.sheetName || request.sheets[0]?.name) }]
     : [];
   if (format === 'xlsx') writeFileSync(output, await finishWorkbook(readFileSync(output), warnings));
   return { output, format, size: statSync(output).size, warnings };
@@ -273,7 +274,7 @@ function saveSheetsTo(ctx, sheets, target, request = {}) {
 /** @param {any} ctx @param {any[]} sheets @param {string} target @param {{ sourcePath?: string, options?: any, structure?: any[] }} request */
 async function saveSheetsToLocked(ctx, sheets, target, request) {
   const format = SHEET_FORMATS[extname(target).toLowerCase()];
-  if (!format) throw httpError(400, 'bad-format', `不能存成 ${extname(target) || '没有扩展名的文件'}。可用的格式：xlsx、xls、csv、tsv、pdf。`);
+  if (!format) throw httpError(400, 'bad-format', t('不能存成 {0}。可用的格式：xlsx、xls、csv、tsv、pdf。', extname(target) || t('没有扩展名的文件')));
   const work = mkdtempSync(join(tmpdir(), 'dsh-doc-save-'));
   try {
     const temporary = join(work, `out${extname(target)}`);
@@ -290,7 +291,7 @@ async function saveSheetsToLocked(ctx, sheets, target, request) {
       await writeSpreadsheet(sheets, temporary, format, { sheetName: request.options?.sheetName });
     }
     if ((format === 'csv' || format === 'tsv') && sheets.length > 1) {
-      warnings.push({ code: 'csv-one-sheet', message: `${format.toUpperCase()} 只能保存一个工作表，已保存“${request.options?.sheetName || sheets[0]?.name}”。` });
+      warnings.push({ code: 'csv-one-sheet', message: t('{0} 只能保存一个工作表，已保存“{1}”。', format.toUpperCase(), request.options?.sheetName || sheets[0]?.name) });
     }
     if (format === 'xlsx') writeFileSync(temporary, await finishWorkbook(readFileSync(temporary), warnings));
     const versionId = backupVersion(target, '被另存为替换');
@@ -314,15 +315,15 @@ function isWorkbookFile(path) {
  */
 export async function inPlaceBlocker(path, options = {}) {
   const ext = extensionOf(path);
-  if (options.format && SHEET_FORMATS[ext] !== options.format) return `原文件是 ${ext}，要存成 ${options.format} 需要另存`;
-  if (ext === '.xls' || ext === '.et') return '原文件是旧版 Excel/WPS 格式，直接写回会丢失部分格式';
-  if (ext === '.xlsm') return '原文件含有宏，直接写回会丢失宏';
-  if (!['.xlsx', '.csv', '.tsv'].includes(ext)) return `不能直接写回 ${ext || '这种'} 文件`;
-  if ((ext === '.csv' || ext === '.tsv') && (options.sheetCount || 1) > 1) return `${ext.slice(1).toUpperCase()} 只能保存一个工作表，现在有 ${options.sheetCount} 个`;
-  if (options.openedMtime && Math.abs(statSync(path).mtimeMs - options.openedMtime) > 1) return '文件在打开之后被其他程序修改过，直接写回会覆盖那些修改';
+  if (options.format && SHEET_FORMATS[ext] !== options.format) return t('原文件是 {0}，要存成 {1} 需要另存', ext, options.format);
+  if (ext === '.xls' || ext === '.et') return t('原文件是旧版 Excel/WPS 格式，直接写回会丢失部分格式');
+  if (ext === '.xlsm') return t('原文件含有宏，直接写回会丢失宏');
+  if (!['.xlsx', '.csv', '.tsv'].includes(ext)) return t('不能直接写回 {0} 文件', ext || t('这种'));
+  if ((ext === '.csv' || ext === '.tsv') && (options.sheetCount || 1) > 1) return t('{0} 只能保存一个工作表，现在有 {1} 个', ext.slice(1).toUpperCase(), options.sheetCount);
+  if (options.openedMtime && Math.abs(statSync(path).mtimeMs - options.openedMtime) > 1) return t('文件在打开之后被其他程序修改过，直接写回会覆盖那些修改');
   if (ext === '.xlsx') {
     const lost = featuresLostOnSave(readFileSync(path));
-    if (lost.length) return `原文件里有${lost.join('、')}，直接写回会丢失`;
+    if (lost.length) return t('原文件里有{0}，直接写回会丢失', lost.join(t('、')));
   }
   return undefined;
 }
@@ -356,8 +357,8 @@ async function finishWorkbook(bytes, warnings, timeoutMs = SAVE_CALCULATION_MS) 
     resultOf = lite.resultOf;
     const reason = error instanceof Error ? error.message : String(error);
     warnings?.push(lite.missing === 0
-      ? { code: 'results-lite', message: `LibreOffice 没能计算（${reason}），公式结果已用内置计算补上。` }
-      : { code: 'results-missing', message: `公式结果没能全部算出来（${reason}）：${lite.filled} 个已用内置计算补上，${lite.missing} 个用到了内置计算不支持的写法，文件里只存了公式，用 Excel 打开时会重新计算。` });
+      ? { code: 'results-lite', message: t('LibreOffice 没能计算（{0}），公式结果已用内置计算补上。', reason) }
+      : { code: 'results-missing', message: t('公式结果没能全部算出来（{0}）：{1} 个已用内置计算补上，{2} 个用到了内置计算不支持的写法，文件里只存了公式，用 Excel 打开时会重新计算。', reason, lite.filled, lite.missing) });
   }
   return withFormulaResults(bytes, resultOf);
 }
@@ -470,10 +471,10 @@ export function saveInPlace(request) {
     const blocker = await inPlaceBlocker(path, { sheetCount: sheets?.length, openedMtime: request.openedMtime });
     if (blocker) {
       const ext = extensionOf(path);
-      return { needsLocation: true, reason: blocker, directory: dirname(path), suggestedName: `${basename(path, ext)}${ext === '.xlsx' ? '-编辑' : ''}.xlsx` };
+      return { needsLocation: true, reason: blocker, directory: dirname(path), suggestedName: `${basename(path, ext)}${ext === '.xlsx' ? t('-编辑') : ''}.xlsx` };
     }
     const complete = (sheets || []).map(withCelldata);
-    if (complete.length === 0) throw httpError(400, 'no-sheet', '没有收到任何工作表，已取消保存，原文件未改动。');
+    if (complete.length === 0) throw httpError(400, 'no-sheet', t('没有收到任何工作表，已取消保存，原文件未改动。'));
     const { content, warnings } = await inPlaceContent(path, complete, request.structure);
     const versionId = backupVersion(path, request.reason || '保存');
     writeAtomically(path, content);
@@ -490,12 +491,12 @@ export function saveInPlace(request) {
 export function saveTextInPlace({ path, text, openedMtime }) {
   return withFileLock(path, async () => {
     assertExists(path);
-    if (documentKind(path) !== 'text') throw httpError(415, 'wrong-kind', `“${basename(path)}”不是文本文件，不能这样保存。`);
-    if (typeof text !== 'string') throw httpError(400, 'bad-text', '没有收到文本内容，原文件未改动。');
+    if (documentKind(path) !== 'text') throw httpError(415, 'wrong-kind', t('“{0}”不是文本文件，不能这样保存。', basename(path)));
+    if (typeof text !== 'string') throw httpError(400, 'bad-text', t('没有收到文本内容，原文件未改动。'));
     if (openedMtime !== undefined && statSync(path).mtimeMs !== openedMtime) return { conflict: true };
     const original = readFileSync(path);
     // The page only ever had the start of a file this long; saving would cut off the rest.
-    if (decodeText(original).text.length > MAX_TEXT_PREVIEW_CHARS) throw httpError(413, 'too-long', '文件太大，这里只显示了开头一部分，不能直接保存，原文件未改动。');
+    if (decodeText(original).text.length > MAX_TEXT_PREVIEW_CHARS) throw httpError(413, 'too-long', t('文件太大，这里只显示了开头一部分，不能直接保存，原文件未改动。'));
     const { bytes, changed } = encodeText(text, textFormatOf(original));
     const versionId = backupVersion(path, '保存');
     writeAtomically(path, bytes);
@@ -529,7 +530,7 @@ async function sheetsToPdf(ctx, sheets, output, title) {
 /** @param {string[]|undefined} fonts */
 function fontWarnings(fonts) {
   return fonts?.length
-    ? [{ code: 'fonts', message: `以下字体本机没有，PDF 中已用替代字体：${fonts.slice(0, 8).join('、')}。` }]
+    ? [{ code: 'fonts', message: t('以下字体本机没有，PDF 中已用替代字体：{0}。', fonts.slice(0, 8).join(t('、'))) }]
     : [];
 }
 
@@ -545,20 +546,20 @@ const CREATABLE = new Set(['.xlsx', '.csv', '.md', '.markdown', '.txt']);
  */
 export async function createDocument(path, options = {}) {
   const ext = extensionOf(path);
-  if (!CREATABLE.has(ext)) throw httpError(400, 'bad-format', `只能新建 xlsx、csv、md 或 txt 文件，不能新建 ${ext || '没有扩展名的文件'}。`);
-  if (existsSync(path)) throw httpError(409, 'exists', `${basename(path)} 已经存在，没有覆盖它。换一个名字，或者用 doc_viewer_edit 修改它。`);
+  if (!CREATABLE.has(ext)) throw httpError(400, 'bad-format', t('只能新建 xlsx、csv、md 或 txt 文件，不能新建 {0}。', ext || t('没有扩展名的文件')));
+  if (existsSync(path)) throw httpError(409, 'exists', t('{0} 已经存在，没有覆盖它。换一个名字，或者用 doc_viewer_edit 修改它。', basename(path)));
   ensureDir(dirname(path));
   const rows = Array.isArray(options.rows) ? options.rows.filter(Array.isArray) : [];
   if (ext === '.xlsx') {
-    const sheetName = String(options.sheet || '工作表1').replace(/[[\]:*?/\\]/g, '_').slice(0, 31) || '工作表1';
+    const sheetName = String(options.sheet || t('工作表1')).replace(/[[\]:*?/\\]/g, '_').slice(0, 31) || t('工作表1');
     rows.forEach((row, r) => row.forEach((value, c) => {
       if (typeof value === 'string' && value.trim().startsWith('=')) {
         const problem = formulaProblem(value, { sheet: sheetName, r, c });
-        if (problem) throw httpError(400, 'bad-formula', `${XLSX.utils.encode_cell({ r, c })} 的公式 ${value} 有问题：${problem}。没有新建文件。`);
+        if (problem) throw httpError(400, 'bad-formula', t('{0} 的公式 {1} 有问题：{2}。没有新建文件。', XLSX.utils.encode_cell({ r, c }), value, problem));
       }
     }));
     const book = new ExcelJS.Workbook();
-    book.creator = 'DeepSeek Harness 文档';
+    book.creator = t('DeepSeek Harness 文档');
     const sheet = book.addWorksheet(sheetName, rows.length && options.header !== false ? { views: [{ state: 'frozen', ySplit: 1 }] } : undefined);
     rows.forEach((row, r) => {
       row.forEach((value, c) => {
@@ -618,57 +619,57 @@ export async function convertOne(ctx, path, target, request) {
   let output;
 
   if (kind === 'spreadsheet') {
-    if (!['xlsx', 'xls', 'csv', 'pdf'].includes(format)) throw httpError(400, 'unsupported-conversion', `表格不能转换为 ${format}`);
+    if (!['xlsx', 'xls', 'csv', 'pdf'].includes(format)) throw httpError(400, 'unsupported-conversion', t('表格不能转换为 {0}', format));
     const doc = await loadWorkbook(path);
-    output = uniquePath(outputDirectory, `${base}-转换`, `.${format}`);
+    output = uniquePath(outputDirectory, t('{0}-转换', base), `.${format}`);
     if (format === 'pdf') {
       const result = await sheetsToPdf(ctx, doc.sheets, output, base);
       warnings.push(...fontWarnings(result.missingFonts));
     } else if (format === 'csv') {
       writeFileSync(output, csvFromSheet(doc.sheets[0], 'utf8'), 'utf8');
-      if (doc.sheets.length > 1) warnings.push({ code: 'csv-one-sheet', message: `CSV 只能保存一个工作表，已转换“${doc.sheets[0].name}”，其余 ${doc.sheets.length - 1} 个工作表未包含。` });
+      if (doc.sheets.length > 1) warnings.push({ code: 'csv-one-sheet', message: t('CSV 只能保存一个工作表，已转换“{0}”，其余 {1} 个工作表未包含。', doc.sheets[0].name, doc.sheets.length - 1) });
     } else {
       await writeSpreadsheet(doc.sheets, output, format);
     }
   } else if (kind === 'pdf') {
     if (format === 'txt') {
-      output = uniquePath(outputDirectory, `${base}-提取`, '.txt');
+      output = uniquePath(outputDirectory, t('{0}-提取', base), '.txt');
       await pdfToTxt(path, output);
     } else if (format === 'docx') {
-      output = uniquePath(outputDirectory, `${base}-提取`, '.docx');
-      warnings.push({ code: 'lossy', message: 'PDF 转 Word 是有损转换：复杂排版、图片、表格和分栏可能丢失，只保留可提取文字。' });
+      output = uniquePath(outputDirectory, t('{0}-提取', base), '.docx');
+      warnings.push({ code: 'lossy', message: t('PDF 转 Word 是有损转换：复杂排版、图片、表格和分栏可能丢失，只保留可提取文字。') });
       await pdfToDocx(path, output);
     } else if (format === 'xlsx') {
-      output = uniquePath(outputDirectory, `${base}-提取`, '.xlsx');
-      warnings.push({ code: 'lossy', message: 'PDF 转 XLSX 是有损转换：按文字坐标尽力还原表格，复杂排版会丢失。' });
+      output = uniquePath(outputDirectory, t('{0}-提取', base), '.xlsx');
+      warnings.push({ code: 'lossy', message: t('PDF 转 XLSX 是有损转换：按文字坐标尽力还原表格，复杂排版会丢失。') });
       const result = await pdfToXlsx(path, output);
       if (result.warning) warnings.push({ code: 'ocr-needed', message: result.warning });
     } else if (format === 'csv') {
-      output = uniquePath(outputDirectory, `${base}-提取`, '.csv');
-      warnings.push({ code: 'lossy', message: 'PDF 表格按文字位置还原为 CSV，复杂排版会丢失。' });
+      output = uniquePath(outputDirectory, t('{0}-提取', base), '.csv');
+      warnings.push({ code: 'lossy', message: t('PDF 表格按文字位置还原为 CSV，复杂排版会丢失。') });
       writeFileSync(output, rowsToCsv(pdfTables(await extractPdf(path))), 'utf8');
     } else if (format === 'pdf') {
-      throw httpError(400, 'same-format', '源文件已经是 PDF；如需合并、拆分或删页，请使用 PDF 工具。');
+      throw httpError(400, 'same-format', t('源文件已经是 PDF；如需合并、拆分或删页，请使用 PDF 工具。'));
     } else {
-      throw httpError(400, 'unsupported-conversion', `PDF 不能直接转换为 ${format}`);
+      throw httpError(400, 'unsupported-conversion', t('PDF 不能直接转换为 {0}', format));
     }
   } else if (kind === 'word') {
-    if (format !== 'pdf' && format !== 'txt') throw httpError(400, 'unsupported-conversion', `Word 不能直接转换为 ${format}`);
+    if (format !== 'pdf' && format !== 'txt') throw httpError(400, 'unsupported-conversion', t('Word 不能直接转换为 {0}', format));
     const normalized = await normalizeWord(path);
     try {
       if (format === 'pdf') {
-        output = uniquePath(outputDirectory, `${base}-转换`, '.pdf');
+        output = uniquePath(outputDirectory, t('{0}-转换', base), '.pdf');
         const result = await convertOfficeToPdf(ctx, normalized.path, output, 'docx');
         warnings.push(...fontWarnings(result.missingFonts));
       } else {
-        output = uniquePath(outputDirectory, `${base}-提取`, '.txt');
+        output = uniquePath(outputDirectory, t('{0}-提取', base), '.txt');
         await docxToTxt(normalized.path, output);
       }
     } finally {
       normalized.cleanup();
     }
   } else if (format === 'pdf') {
-    output = uniquePath(outputDirectory, `${base}-转换`, '.pdf');
+    output = uniquePath(outputDirectory, t('{0}-转换', base), '.pdf');
     const work = mkdtempSync(join(tmpdir(), 'dsh-doc-txt-'));
     try {
       const docx = join(work, 'text.docx');
@@ -684,13 +685,13 @@ export async function convertOne(ctx, path, target, request) {
       rmSync(work, { recursive: true, force: true });
     }
   } else if (format === 'txt') {
-    output = uniquePath(outputDirectory, `${base}-转换`, '.txt');
+    output = uniquePath(outputDirectory, t('{0}-转换', base), '.txt');
     writeFileSync(output, `${readTextDocument(path).text}`, 'utf8');
   } else {
-    throw httpError(400, 'unsupported-conversion', `${ext || '文本'} 不能直接转换为 ${format}`);
+    throw httpError(400, 'unsupported-conversion', t('{0} 不能直接转换为 {1}', ext || t('文本'), format));
   }
 
-  if (!existsSync(output)) throw httpError(500, 'conversion-failed', '没有生成输出文件');
+  if (!existsSync(output)) throw httpError(500, 'conversion-failed', t('没有生成输出文件'));
   return {
     ok: true,
     source: path,
@@ -740,17 +741,17 @@ export async function pdfOperation(ctx, action, request) {
   ensureDir(request.outputDirectory);
   if (action === 'merge') {
     if (request.outputPath) backupVersion(request.outputPath, '被合并结果替换');
-    const output = request.outputPath || uniquePath(request.outputDirectory, `${basename(paths[0] || '合并文档', extname(paths[0] || ''))}-合并`, '.pdf');
+    const output = request.outputPath || uniquePath(request.outputDirectory, t('{0}-合并', basename(paths[0] || t('合并文档'), extname(paths[0] || ''))), '.pdf');
     return mergePdfs(paths, output);
   }
   const source = paths[0];
-  if (!source && ['split', 'delete', 'ocr'].includes(action)) throw httpError(400, 'bad-path', '请选择一个文件');
+  if (!source && ['split', 'delete', 'ocr'].includes(action)) throw httpError(400, 'bad-path', t('请选择一个文件'));
   if (action === 'split') {
     return splitPdf(source, request.outputDirectory, { ranges: request.ranges, title: basename(source, extname(source)) });
   }
   if (action === 'delete') {
-    if (!String(request.pages || '').trim()) throw httpError(400, 'bad-pages', '请指定要删除的页码，例如 2,4-6');
-    const output = uniquePath(request.outputDirectory, `${basename(source, extname(source))}-删页`, '.pdf');
+    if (!String(request.pages || '').trim()) throw httpError(400, 'bad-pages', t('请指定要删除的页码，例如 2,4-6'));
+    const output = uniquePath(request.outputDirectory, t('{0}-删页', basename(source, extname(source))), '.pdf');
     return deletePdfPages(source, output, request.pages);
   }
   if (action === 'ocr') {
@@ -772,7 +773,7 @@ export async function pdfOperation(ctx, action, request) {
     }
     return { output, pages: result.pages.length, engine: result.engine, chars: result.text.length };
   }
-  throw httpError(400, 'bad-pdf-action', `不支持的 PDF 操作：${action}`);
+  throw httpError(400, 'bad-pdf-action', t('不支持的 PDF 操作：{0}', action));
 }
 
 /* ------------------------------------------------------------------ */
@@ -821,7 +822,7 @@ export async function readDocument(path, request = {}) {
 /** @param {any} doc @param {any} request @param {number} limit */
 function readSheetRange(doc, request, limit) {
   const sheet = request.sheet ? doc.sheets.find((entry) => entry.name === request.sheet) : doc.sheets[0];
-  if (!sheet) throw httpError(400, 'bad-sheet', `没有名为“${request.sheet}”的工作表。现有工作表：${doc.sheetNames.join('、')}`);
+  if (!sheet) throw httpError(400, 'bad-sheet', t('没有名为“{0}”的工作表。现有工作表：{1}', request.sheet, doc.sheetNames.join(t('、'))));
   const used = sheetBounds(sheet);
   const bounds = request.range ? decodeRange(request.range) : {
     s: { r: 0, c: 0 },
@@ -907,8 +908,8 @@ export async function statsForFile(path, request, outputDirectory) {
   let saved;
   if (request.save) {
     const base = basename(path, extname(path));
-    const merged = [...doc.sheets, statsSheet(doc.sheets[0], result, { title: '统计结果' })];
-    saved = uniquePath(outputDirectory, `${base}-统计`, '.xlsx');
+    const merged = [...doc.sheets, statsSheet(doc.sheets[0], result, { title: t('统计结果') })];
+    saved = uniquePath(outputDirectory, t('{0}-统计', base), '.xlsx');
     if (isWorkbookFile(path)) writeFileSync(saved, await patchXlsx(readFileSync(path), merged));
     else await writeSpreadsheet(merged, saved, 'xlsx');
   }
@@ -919,7 +920,7 @@ export async function statsForFile(path, request, outputDirectory) {
 async function loadWorkbookForTable(path) {
   assertExists(path);
   const kind = documentKind(path);
-  if (kind !== 'spreadsheet') throw httpError(415, 'wrong-kind', `“${basename(path)}”不是表格，不能做这个操作。`);
+  if (kind !== 'spreadsheet') throw httpError(415, 'wrong-kind', t('“{0}”不是表格，不能做这个操作。', basename(path)));
   return loadWorkbook(path);
 }
 
@@ -940,7 +941,7 @@ async function editFileLocked(path, request, outputDirectory) {
   const sheets = structuredClone(doc.sheets);
   const applied = applyEdits(sheets, request.edits || [], { convertTextNumbers: request.convertTextNumbers, sheet: request.sheet });
   if (applied.applied.length === 0 && applied.converted === 0) {
-    throw httpError(400, 'nothing-to-do', request.convertTextNumbers ? '没有可转换的文本数字，也没有要写入的单元格，未生成新文件。' : '没有要写入的单元格，未生成新文件。');
+    throw httpError(400, 'nothing-to-do', request.convertTextNumbers ? t('没有可转换的文本数字，也没有要写入的单元格，未生成新文件。') : t('没有要写入的单元格，未生成新文件。'));
   }
   // What the edits change, for a page that has the file open with unsaved edits of its own.
   const liveChanges = request.live ? cellChanges(doc.sheets, sheets) : undefined;
@@ -950,8 +951,8 @@ async function editFileLocked(path, request, outputDirectory) {
   // By default the file is changed where it is, with the old content kept as a version.
   const wanted = request.saveAs || SHEET_FORMATS[extensionOf(path)];
   const blocker = live ? undefined
-    : request.inPlace === false ? '要求另存'
-    : request.live ? `${request.blockedReason || '用户在文档页里对这个文件有未保存的修改'}，而这次改动${liveChanges ? '超出了表格当前的范围' : '太多'}，没法直接放进页面`
+    : request.inPlace === false ? t('要求另存')
+    : request.live ? t('{0}，而这次改动{1}，没法直接放进页面', request.blockedReason || t('用户在文档页里对这个文件有未保存的修改'), liveChanges ? t('超出了表格当前的范围') : t('太多'))
     : request.blockedReason || await inPlaceBlocker(path, { sheetCount: sheets.length, format: wanted });
   const warnings = [...(doc.warnings || [])];
   const format = blocker ? (request.saveAs === 'xls' ? 'xls' : 'xlsx') : extensionOf(path).slice(1);
@@ -980,9 +981,9 @@ async function editFileLocked(path, request, outputDirectory) {
     } catch { /* value verification is optional */ }
     for (const item of (values || []).filter((value) => value.formula && /^#[A-Z/0!?]+/.test(value.display))) {
       if (item.display.startsWith('#NAME?')) {
-        throw httpError(400, 'bad-formula', `${item.sheet}!${item.address} 的公式 ${item.formula} 算出来是 #NAME?：里面有无法识别的函数或名称。文件没有改动。`);
+        throw httpError(400, 'bad-formula', t('{0}!{1} 的公式 {2} 算出来是 #NAME?：里面有无法识别的函数或名称。文件没有改动。', item.sheet, item.address, item.formula));
       }
-      warnings.push({ code: 'formula-error', message: `${item.sheet}!${item.address} 的结果是 ${item.display}，请检查公式和它引用的数据。` });
+      warnings.push({ code: 'formula-error', message: t('{0}!{1} 的结果是 {2}，请检查公式和它引用的数据。', item.sheet, item.address, item.display) });
     }
     // What changed, results of dependent formulas included, so the agent need not read the file back to find out.
     const changes = written ? changeReport(cellChanges(doc.sheets, written), values) : undefined;
@@ -993,7 +994,7 @@ async function editFileLocked(path, request, outputDirectory) {
     let output;
     let versionId;
     if (blocker) {
-      output = uniquePath(outputDirectory, `${basename(path, extname(path))}-已编辑`, `.${format}`);
+      output = uniquePath(outputDirectory, t('{0}-已编辑', basename(path, extname(path))), `.${format}`);
       writeFileSync(output, content);
     } else {
       output = path;

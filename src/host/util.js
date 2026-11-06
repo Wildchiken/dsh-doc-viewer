@@ -3,6 +3,7 @@
  * Everything here is local: no network, no external service.
  */
 import { accessSync, closeSync, constants, existsSync, mkdirSync, openSync, readFileSync, readSync, statSync } from 'node:fs';
+import { t } from './i18n.js';
 import { basename, dirname, extname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
@@ -80,16 +81,16 @@ export function escapeRe(value) {
 /** @param {string} path */
 export function readBytes(path, maxBytes = MAX_OPEN_BYTES) {
   const info = statSync(path);
-  if (!info.isFile()) throw httpError(400, 'not-a-file', '目标不是文件');
+  if (!info.isFile()) throw httpError(400, 'not-a-file', t('目标不是文件'));
   if (info.size > maxBytes) {
-    throw httpError(413, 'too-large', `文件过大（${formatBytes(info.size)}），上限为 ${formatBytes(maxBytes)}`);
+    throw httpError(413, 'too-large', t('文件过大（{0}），上限为 {1}', formatBytes(info.size), formatBytes(maxBytes)));
   }
   return readFileSync(path);
 }
 
 /** @param {number} bytes */
 export function formatBytes(bytes) {
-  if (!Number.isFinite(bytes)) return '未知大小';
+  if (!Number.isFinite(bytes)) return t('未知大小');
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -126,10 +127,10 @@ export function errorPayload(error) {
 export function friendlyMessage(error) {
   const message = String(error?.message || error);
   if (/password|encrypt/i.test(message)) {
-    return '这个文件已加密或受密码保护，无法直接打开。请先解除密码后再试。';
+    return t('这个文件已加密或受密码保护，无法直接打开。请先解除密码后再试。');
   }
   if (/unsupported zip|corrupt|bad zip|unexpected end|central directory|invalid pdf|format error|end of data/i.test(message)) {
-    return '文件可能已损坏或格式不受支持，已保留原文件，请尝试其他副本。';
+    return t('文件可能已损坏或格式不受支持，已保留原文件，请尝试其他副本。');
   }
   return message.length > 300 ? `${message.slice(0, 300)}…` : message;
 }

@@ -9,6 +9,7 @@
  * and writes only the differences. Everything else stays as it was.
  */
 import { inflateRawSync } from 'node:zlib';
+import { t } from './i18n.js';
 import ExcelJS from 'exceljs';
 import {
   cellBorders,
@@ -78,24 +79,24 @@ export function featuresLostOnSave(bytes) {
   const names = entries.map((entry) => entry.name);
   const found = new Set();
   const has = (prefix) => names.some((name) => name.startsWith(prefix));
-  if (has('xl/charts/') || has('xl/chartsheets/')) found.add('图表');
-  if (has('xl/pivotTables/') || has('xl/pivotCache/')) found.add('数据透视表');
-  if (has('xl/vbaProject.bin')) found.add('宏');
-  if (has('xl/slicers/') || has('xl/slicerCaches/') || has('xl/timelines/')) found.add('切片器');
-  if (has('xl/externalLinks/')) found.add('外部链接');
-  if (has('xl/activeX/') || has('xl/ctrlProps/')) found.add('表单控件');
-  if (has('xl/embeddings/')) found.add('嵌入的对象');
-  if (has('xl/threadedComments/')) found.add('批注');
+  if (has('xl/charts/') || has('xl/chartsheets/')) found.add(t('图表'));
+  if (has('xl/pivotTables/') || has('xl/pivotCache/')) found.add(t('数据透视表'));
+  if (has('xl/vbaProject.bin')) found.add(t('宏'));
+  if (has('xl/slicers/') || has('xl/slicerCaches/') || has('xl/timelines/')) found.add(t('切片器'));
+  if (has('xl/externalLinks/')) found.add(t('外部链接'));
+  if (has('xl/activeX/') || has('xl/ctrlProps/')) found.add(t('表单控件'));
+  if (has('xl/embeddings/')) found.add(t('嵌入的对象'));
+  if (has('xl/threadedComments/')) found.add(t('批注'));
   for (const entry of entries) {
     if (/^xl\/drawings\/drawing\d+\.xml$/.test(entry.name)) {
       // Pictures survive; shapes and text boxes do not.
       const xml = entry.read().toString('utf8');
-      if (/<xdr:sp[\s>]/.test(xml) || /<xdr:cxnSp[\s>]/.test(xml) || /<xdr:grpSp[\s>]/.test(xml)) found.add('形状或文本框');
+      if (/<xdr:sp[\s>]/.test(xml) || /<xdr:cxnSp[\s>]/.test(xml) || /<xdr:grpSp[\s>]/.test(xml)) found.add(t('形状或文本框'));
     } else if (/^xl\/worksheets\/sheet\d+\.xml$/.test(entry.name)) {
       const xml = entry.read().toString('utf8');
-      if (xml.includes('sparklineGroup')) found.add('迷你图');
-      if (xml.includes('<x14:conditionalFormatting')) found.add('条件格式（新版样式）');
-      if (xml.includes('<x14:dataValidation')) found.add('引用其他工作表的数据验证');
+      if (xml.includes('sparklineGroup')) found.add(t('迷你图'));
+      if (xml.includes('<x14:conditionalFormatting')) found.add(t('条件格式（新版样式）'));
+      if (xml.includes('<x14:dataValidation')) found.add(t('引用其他工作表的数据验证'));
     }
   }
   return [...found];

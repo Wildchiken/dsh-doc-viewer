@@ -8,6 +8,7 @@
  * so the panel can show a correct value immediately.
  */
 import ExcelJS from 'exceljs';
+import { t } from './i18n.js';
 import * as XLSX from '../../vendor/xlsx/xlsx.mjs';
 import { execFile } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -502,7 +503,7 @@ function parseDelimitedText(text, label) {
   const workbook = XLSX.read(text, { type: 'string', raw: true, cellFormula: true, cellNF: true, cellStyles: false });
   const names = workbook.SheetNames.length ? workbook.SheetNames : ['Sheet1'];
   return {
-    sheets: names.map((name, index) => sheetJsSheetToFortune(workbook.Sheets[name], index === 0 ? (name === 'Sheet1' ? '数据' : name) : name, index, names, { inferNumbers: true })),
+    sheets: names.map((name, index) => sheetJsSheetToFortune(workbook.Sheets[name], index === 0 ? (name === 'Sheet1' ? t('数据') : name) : name, index, names, { inferNumbers: true })),
     source: 'text',
     label,
   };
@@ -528,7 +529,7 @@ function parsePlainLines(text) {
   });
   return {
     sheets: [finishSheet({
-      name: '文本',
+      name: t('文本'),
       id: sheetId(0),
       order: 0,
       row: Math.max(lines.length + 50, 200),
@@ -539,7 +540,7 @@ function parsePlainLines(text) {
       showGridLines: true,
     })],
     source: 'text',
-    label: '纯文本',
+    label: t('纯文本'),
   };
 }
 
@@ -565,35 +566,35 @@ export function formulaAddresses(sheets) {
  *   `stats.pendingCalculation`; by default it runs only when some formula has no saved result.
  */
 export async function loadSpreadsheet(path, options = {}) {
-  if (!fileExists(path)) throw httpError(404, 'not-found', '文件不存在');
+  if (!fileExists(path)) throw httpError(404, 'not-found', t('文件不存在'));
   const bytes = readBytes(path);
   const ext = extensionOf(path);
   const container = sniffContainer(bytes);
   const warnings = [];
   let parsed;
 
-  if (container === 'pdf') throw httpError(415, 'wrong-kind', '这是一个 PDF 文件，不是表格。');
+  if (container === 'pdf') throw httpError(415, 'wrong-kind', t('这是一个 PDF 文件，不是表格。'));
   if (container === 'zip') {
-    parsed = await parseXlsxBytes(bytes, ext === '.et' ? 'WPS ET（OOXML）' : 'XLSX');
+    parsed = await parseXlsxBytes(bytes, ext === '.et' ? 'WPS ET (OOXML)' : 'XLSX');
   } else if (container === 'ole') {
-    parsed = parseXlsBytes(bytes, ext === '.et' ? 'WPS ET（BIFF）' : 'XLS（BIFF）');
+    parsed = parseXlsBytes(bytes, ext === '.et' ? 'WPS ET (BIFF)' : 'XLS (BIFF)');
   } else if (container === 'html') {
     const { text, encoding } = decodeText(bytes);
-    parsed = parseHtmlText(text, '网页/HTML 表格');
-    warnings.push({ code: 'html-table', message: `这是网页或 HTML 表格伪装成的 ${ext.slice(1) || '表格'} 文件，已按表格内容读取（${encoding.toUpperCase()}）。` });
+    parsed = parseHtmlText(text, t('网页/HTML 表格'));
+    warnings.push({ code: 'html-table', message: t('这是网页或 HTML 表格伪装成的 {0} 文件，已按表格内容读取（{1}）。', ext.slice(1) || t('表格'), encoding.toUpperCase()) });
   } else if (container === 'text' || container === 'json') {
     const { text, encoding } = decodeText(bytes);
     const kind = looksDelimited(text);
     if (kind) {
       parsed = parseDelimitedText(text, kind === 'tsv' ? 'TSV' : 'CSV');
       // Nothing to say about the ordinary case; a legacy encoding is worth pointing out.
-      if (encoding !== 'utf-8') warnings.push({ code: 'encoding', message: `文本表格已按 ${encoding.toUpperCase()} 解码，保存时统一使用 UTF-8。` });
+      if (encoding !== 'utf-8') warnings.push({ code: 'encoding', message: t('文本表格已按 {0} 解码，保存时统一使用 UTF-8。', encoding.toUpperCase()) });
     } else {
       parsed = parsePlainLines(text);
-      warnings.push({ code: 'plain-text', message: `该文件是纯文本（${encoding.toUpperCase()}），已放进单列表格。` });
+      warnings.push({ code: 'plain-text', message: t('该文件是纯文本（{0}），已放进单列表格。', encoding.toUpperCase()) });
     }
   } else {
-    throw httpError(415, 'unsupported', `无法识别 ${ext || '该文件'} 的内容格式。`);
+    throw httpError(415, 'unsupported', t('无法识别 {0} 的内容格式。', ext || t('该文件')));
   }
 
   let sheets = parsed.sheets;
@@ -639,7 +640,7 @@ export async function loadSpreadsheet(path, options = {}) {
       // Fonts matter when exporting a PDF, where they are reported; the grid paints with its own.
       missingFonts = recalc.missingFonts || [];
     } catch (error) {
-      warnings.push({ code: 'recalc', message: `LibreOffice 重算没有成功（${error instanceof Error ? error.message : String(error)}），表格里的公式改由内置引擎计算，个别函数可能不支持。` });
+      warnings.push({ code: 'recalc', message: t('LibreOffice 重算没有成功（{0}），表格里的公式改由内置引擎计算，个别函数可能不支持。', error instanceof Error ? error.message : String(error)) });
     } finally {
       if (tempDir) rmSync(tempDir, { recursive: true, force: true });
     }
@@ -647,9 +648,9 @@ export async function loadSpreadsheet(path, options = {}) {
 
   const cellCount = sheets.reduce((sum, sheet) => sum + (sheet.celldata?.length || 0), 0);
   if (cellCount > (options.maxCells || 1_000_000)) {
-    warnings.push({ code: 'large', message: `表格较大（${cellCount.toLocaleString()} 个非空单元格），操作可能会变慢。` });
+    warnings.push({ code: 'large', message: t('表格较大（{0} 个非空单元格），操作可能会变慢。', cellCount.toLocaleString()) });
   }
-  if (sheets.length === 0) throw httpError(422, 'empty-workbook', '这个工作簿里没有工作表，文件可能已损坏。');
+  if (sheets.length === 0) throw httpError(422, 'empty-workbook', t('这个工作簿里没有工作表，文件可能已损坏。'));
 
   return {
     kind: 'spreadsheet',
@@ -806,7 +807,7 @@ export function fileFormula(formula) {
  */
 export function formulaProblem(formula, cell) {
   const text = String(formula).trim().replace(/^=/, '').trim();
-  if (text === '') return '公式是空的';
+  if (text === '') return t('公式是空的');
   let depth = 0;
   let quote;
   let code = '';
@@ -823,13 +824,13 @@ export function formulaProblem(formula, cell) {
     } else {
       if (char === '(') depth += 1;
       if (char === ')') depth -= 1;
-      if (depth < 0) return '多了一个右括号';
+      if (depth < 0) return t('多了一个右括号');
       code += char;
     }
   }
-  if (quote) return quote === '"' ? '引号没有闭合' : '工作表名的引号没有闭合';
-  if (depth > 0) return '少了右括号';
-  if (/[+\-*/^&=<>,(]\s*$/.test(code)) return '公式没有写完';
+  if (quote) return quote === '"' ? t('引号没有闭合') : t('工作表名的引号没有闭合');
+  if (depth > 0) return t('少了右括号');
+  if (/[+\-*/^&=<>,(]\s*$/.test(code)) return t('公式没有写完');
   if (!cell) return undefined;
   const reference = /(?<![\w.$§!])(?:([\p{L}\p{N}_§]+)!)?\$?([A-Z]{1,3})\$?(\d+)(?::\$?([A-Z]{1,3})\$?(\d+))?(?![\w(])/giu;
   for (const match of code.matchAll(reference)) {
@@ -838,7 +839,7 @@ export function formulaProblem(formula, cell) {
     const start = XLSX.utils.decode_cell(`${match[2]}${match[3]}`.toUpperCase());
     const end = match[4] ? XLSX.utils.decode_cell(`${match[4]}${match[5]}`.toUpperCase()) : start;
     if (cell.r >= Math.min(start.r, end.r) && cell.r <= Math.max(start.r, end.r) && cell.c >= Math.min(start.c, end.c) && cell.c <= Math.max(start.c, end.c)) {
-      return '公式引用了它自己所在的单元格（循环引用）';
+      return t('公式引用了它自己所在的单元格（循环引用）');
     }
   }
   return undefined;
@@ -898,7 +899,7 @@ export function workbookSheetNames(sheets) {
 /** @param {any} sheets */
 function requireSheets(sheets) {
   if (!Array.isArray(sheets) || sheets.length === 0) {
-    throw httpError(400, 'no-sheet', '没有收到任何工作表，已取消保存，原文件未改动。');
+    throw httpError(400, 'no-sheet', t('没有收到任何工作表，已取消保存，原文件未改动。'));
   }
   return sheets.map(withCelldata);
 }
@@ -910,7 +911,7 @@ function requireSheets(sheets) {
  */
 export async function buildXlsx(sheets, options = {}) {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = options.creator || 'DeepSeek Harness 文档查看器';
+  workbook.creator = options.creator || t('DeepSeek Harness 文档查看器');
   workbook.created = new Date();
   // Excel, WPS and Numbers recalculate on open, so a stale saved result never shows.
   workbook.calcProperties = { fullCalcOnLoad: true };
@@ -923,7 +924,7 @@ export async function buildXlsx(sheets, options = {}) {
       workbook.removeWorksheet(worksheet.id);
     }
   });
-  if (options.print && workbook.worksheets.length === 0) throw httpError(400, 'empty-workbook', '表格里没有内容，没有可导出的页面。');
+  if (options.print && workbook.worksheets.length === 0) throw httpError(400, 'empty-workbook', t('表格里没有内容，没有可导出的页面。'));
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
@@ -951,7 +952,7 @@ export async function writeSpreadsheet(sheets, output, format, options = {}) {
     writeFileSync(output, csvFromSheet(sheet, 'utf8'));
     return;
   }
-  throw httpError(400, 'bad-format', `不支持的表格输出格式：${format}`);
+  throw httpError(400, 'bad-format', t('不支持的表格输出格式：{0}', format));
 }
 
 /** @param {any} sheet @param {'utf8'|'gbk'} encoding */
@@ -1022,7 +1023,7 @@ export async function writeXlsWithPython(sheets, output) {
   try {
     const payload = join(work, 'workbook.json');
     const script = join(HERE, 'xls-writer.py');
-    if (!existsSync(script)) throw httpError(500, 'missing-writer', '缺少 XLS 写入组件');
+    if (!existsSync(script)) throw httpError(500, 'missing-writer', t('缺少 XLS 写入组件'));
     const complete = requireSheets(sheets);
     const names = workbookSheetNames(complete).map((name) => name);
     writeFileSync(payload, JSON.stringify({
@@ -1040,7 +1041,7 @@ export async function writeXlsWithPython(sheets, output) {
       timeout: 120_000,
       maxBuffer: 2 * 1024 * 1024,
     });
-    if (!fileExists(output)) throw httpError(500, 'xls-failed', '没有生成 XLS 文件');
+    if (!fileExists(output)) throw httpError(500, 'xls-failed', t('没有生成 XLS 文件'));
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
@@ -1055,7 +1056,7 @@ async function findPython() {
       return candidate;
     } catch { /* next */ }
   }
-  throw httpError(503, 'python-unavailable', '未找到 Python 3，无法写出旧版 XLS。可改用 XLSX。');
+  throw httpError(503, 'python-unavailable', t('未找到 Python 3，无法写出旧版 XLS。可改用 XLSX。'));
 }
 
 /**
@@ -1069,7 +1070,7 @@ export function applyEdits(sheets, edits, options = {}) {
   const findSheet = (name) => {
     if (!name) return sheets[0];
     const sheet = sheets.find((entry) => entry.name === name);
-    if (!sheet) throw httpError(400, 'bad-sheet', `没有名为“${name}”的工作表。现有工作表：${names.join('、')}`);
+    if (!sheet) throw httpError(400, 'bad-sheet', t('没有名为“{0}”的工作表。现有工作表：{1}', name, names.join(t('、'))));
     return sheet;
   };
   const lookups = new Map();
@@ -1081,18 +1082,18 @@ export function applyEdits(sheets, edits, options = {}) {
   for (const edit of edits || []) {
     const sheet = findSheet(edit.sheet || options.sheet);
     const address = String(edit.address || '').toUpperCase();
-    if (!/^[A-Z]{1,3}[1-9]\d*$/.test(address)) throw httpError(400, 'bad-address', `单元格地址不正确：${edit.address}`);
+    if (!/^[A-Z]{1,3}[1-9]\d*$/.test(address)) throw httpError(400, 'bad-address', t('单元格地址不正确：{0}', edit.address));
     const decoded = XLSX.utils.decode_cell(address);
     // Nothing is written unless every edit can be: these stop the whole call.
     const merge = Object.values(sheet.config?.merge || {}).find((m) => m && decoded.r >= m.r && decoded.r < m.r + m.rs && decoded.c >= m.c && decoded.c < m.c + m.cs);
     if (merge && (merge.r !== decoded.r || merge.c !== decoded.c)) {
       const master = XLSX.utils.encode_cell({ r: merge.r, c: merge.c });
       const last = XLSX.utils.encode_cell({ r: merge.r + merge.rs - 1, c: merge.c + merge.cs - 1 });
-      throw httpError(400, 'inside-merge', `${address} 在合并单元格 ${master}:${last} 内部，写入会覆盖 ${master} 的内容。要改这个合并单元格，请写 ${master}。文件没有改动。`);
+      throw httpError(400, 'inside-merge', t('{0} 在合并单元格 {1}:{2} 内部，写入会覆盖 {3} 的内容。要改这个合并单元格，请写 {4}。文件没有改动。', address, master, last, master, master));
     }
     if (typeof edit.formula === 'string' && edit.formula.trim() !== '') {
       const problem = formulaProblem(edit.formula, { sheet: sheet.name, r: decoded.r, c: decoded.c });
-      if (problem) throw httpError(400, 'bad-formula', `${address} 的公式 ${edit.formula} 有问题：${problem}。文件没有改动。`);
+      if (problem) throw httpError(400, 'bad-formula', t('{0} 的公式 {1} 有问题：{2}。文件没有改动。', address, edit.formula, problem));
     }
     const lookup = lookupOf(sheet);
     let entry = lookup.get(cellKey(decoded.r, decoded.c));
@@ -1168,8 +1169,8 @@ export function computeStats(sheets, request = {}) {
   const sheet = request.sheet ? sheets.find((entry) => entry.name === request.sheet) : sheets[0];
   if (!sheet) {
     throw httpError(400, 'bad-sheet', request.sheet
-      ? `没有名为“${request.sheet}”的工作表。现有工作表：${sheets.map((entry) => entry.name).join('、')}`
-      : '没有工作表');
+      ? t('没有名为“{0}”的工作表。现有工作表：{1}', request.sheet, sheets.map((entry) => entry.name).join(t('、')))
+      : t('没有工作表'));
   }
   const bounds = request.range ? decodeRange(request.range) : sheetBounds(sheet);
   const lookup = new Map(sheet.celldata.map((entry) => [cellKey(entry.r, entry.c), entry.v]));
@@ -1187,9 +1188,9 @@ export function computeStats(sheets, request = {}) {
   const body = hasHeader ? matrix.slice(1) : matrix;
   const groupIndex = columnIndex(request.groupBy, header, bounds);
   const valueIndex = columnIndex(request.valueColumn, header, bounds);
-  if (request.groupBy && groupIndex === undefined) throw httpError(400, 'bad-column', `分组列“${request.groupBy}”不在所选范围内。可用的列：${header.join('、')}`);
-  if (request.valueColumn && valueIndex === undefined) throw httpError(400, 'bad-column', `数值列“${request.valueColumn}”不在所选范围内。可用的列：${header.join('、')}`);
-  if (groupIndex !== undefined && valueIndex === undefined) throw httpError(400, 'bad-column', '按列分组时还需要指定数值列。');
+  if (request.groupBy && groupIndex === undefined) throw httpError(400, 'bad-column', t('分组列“{0}”不在所选范围内。可用的列：{1}', request.groupBy, header.join(t('、'))));
+  if (request.valueColumn && valueIndex === undefined) throw httpError(400, 'bad-column', t('数值列“{0}”不在所选范围内。可用的列：{1}', request.valueColumn, header.join(t('、'))));
+  if (groupIndex !== undefined && valueIndex === undefined) throw httpError(400, 'bad-column', t('按列分组时还需要指定数值列。'));
   const numberOf = (cell) => {
     if (typeof cell?.v === 'number') return Number.isFinite(cell.v) ? cell.v : undefined;
     return parseNumericText(cell?.v);
@@ -1220,7 +1221,7 @@ export function computeStats(sheets, request = {}) {
   if (groupIndex !== undefined) {
     const groups = new Map();
     for (const row of body) {
-      const key = row[groupIndex] ? String(displayValue(row[groupIndex])) || '(空)' : '(空)';
+      const key = row[groupIndex] ? String(displayValue(row[groupIndex])) || t('(空)') : t('(空)');
       const value = numberOf(row[valueIndex]);
       if (value === undefined) continue;
       if (!groups.has(key)) groups.set(key, []);
@@ -1248,7 +1249,7 @@ export function computeStats(sheets, request = {}) {
 export function decodeRange(range) {
   const text = String(range).trim().toUpperCase();
   if (!/^\$?[A-Z]{1,3}\$?[1-9]\d*(:\$?[A-Z]{1,3}\$?[1-9]\d*)?$/.test(text)) {
-    throw httpError(400, 'bad-range', `范围格式不正确：${range}（应为 A1:F40 这样的写法）`);
+    throw httpError(400, 'bad-range', t('范围格式不正确：{0}（应为 A1:F40 这样的写法）', range));
   }
   return XLSX.utils.decode_range(text.replaceAll('$', ''));
 }
@@ -1294,16 +1295,16 @@ function columnIndex(name, header, bounds) {
  */
 export function statsSheet(sheet, stats, options = {}) {
   const rows = [
-    ['指标', '值'],
-    ['合计', stats.summary.sum],
-    ['平均', stats.summary.average],
-    ['最大', stats.summary.max],
-    ['最小', stats.summary.min],
-    ['计数', stats.summary.count],
-    ['去重计数', stats.summary.distinct],
+    [t('指标'), t('值')],
+    [t('合计'), stats.summary.sum],
+    [t('平均'), stats.summary.average],
+    [t('最大'), stats.summary.max],
+    [t('最小'), stats.summary.min],
+    [t('计数'), stats.summary.count],
+    [t('去重计数'), stats.summary.distinct],
   ];
   if (stats.groups?.length) {
-    rows.push([], ['分组', stats.groupBy?.agg || '汇总']);
+    rows.push([], [t('分组'), stats.groupBy?.agg || t('汇总')]);
     for (const group of stats.groups) rows.push([group.key, group[stats.groupBy?.agg || 'sum'] ?? group.sum]);
   }
   const celldata = rows.flatMap((row, r) => row.map((value, c) => ({
@@ -1316,7 +1317,7 @@ export function statsSheet(sheet, stats, options = {}) {
     },
   })));
   return finishSheet({
-    name: options.title || '统计结果',
+    name: options.title || t('统计结果'),
     id: `stats-${token().slice(0, 8)}`,
     order: 999,
     row: Math.max(rows.length + 40, 120),

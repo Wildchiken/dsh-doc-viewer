@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import { t } from './i18n.js';
 
 /**
  * Text decoding for CSV/TSV/TXT and legacy text-like files.
@@ -125,7 +126,7 @@ export function encodeText(text, format) {
     const page = format.encoding === 'big5' ? 950 : 936;
     const bytes = Buffer.from(cptable().utils.encode(page, body));
     if (cptable().utils.decode(page, bytes) === body) return { bytes };
-    return { bytes: Buffer.from(`﻿${body}`, 'utf8'), changed: `新内容里有 ${format.encoding.toUpperCase()} 编码表示不了的字符，已改存为 UTF-8` };
+    return { bytes: Buffer.from(`﻿${body}`, 'utf8'), changed: t('新内容里有 {0} 编码表示不了的字符，已改存为 UTF-8', format.encoding.toUpperCase()) };
   }
   if (format.encoding === 'utf-16le' || format.encoding === 'utf-16be') {
     const le = Buffer.from(`﻿${body}`, 'utf16le');

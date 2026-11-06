@@ -4,6 +4,7 @@
  * host, the way the Harness's own folder picker does; Linux uses zenity.
  */
 import { execFile } from 'node:child_process';
+import { t } from './i18n.js';
 import { httpError } from './util.js';
 
 /** An Edit menu makes ⌘C/⌘V work in the panel's fields (Go to Folder, the name field). */
@@ -68,7 +69,7 @@ function run(command, args) {
 }
 
 function unavailable() {
-  return httpError(501, 'native-unavailable', '这个系统上没有可用的文件面板。');
+  return httpError(501, 'native-unavailable', t('这个系统上没有可用的文件面板。'));
 }
 
 /**
@@ -76,7 +77,7 @@ function unavailable() {
  * @returns {Promise<string[]>} the chosen files; empty when cancelled
  */
 export async function pickFiles(options = {}) {
-  const message = options.message || '选择要打开的文档';
+  const message = options.message || t('选择要打开的文档');
   if (process.platform === 'darwin') {
     const out = await run('osascript', ['-l', 'JavaScript', '-e', MAC_OPEN, message, options.directory || '']);
     return out ? out.split('\n').filter(Boolean) : [];
@@ -98,7 +99,7 @@ export async function pickFiles(options = {}) {
  * @returns {Promise<string|null>} the chosen path; null when cancelled
  */
 export async function pickSaveLocation(options) {
-  const message = options.message || '存储到';
+  const message = options.message || t('存储到');
   if (process.platform === 'darwin') {
     return (await run('osascript', ['-l', 'JavaScript', '-e', MAC_SAVE, message, options.directory || '', options.name])) || null;
   }

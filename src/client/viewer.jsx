@@ -262,7 +262,7 @@ export function Viewer({ active, shell, placement }) {
           const uploaded = await api.upload(file);
           await openPath(uploaded.path);
         } catch (error) {
-          showError(`${file.name}：${friendly(error)}`);
+          showError(t('{0}：{1}', file.name, friendly(error)));
         }
       }
     });
@@ -677,7 +677,7 @@ export function Viewer({ active, shell, placement }) {
       return;
     }
     const detail = commands.current.get(tab.id)?.describe?.() || {};
-    const where = detail.sheet ? `，${rangeLabel(detail.sheet, detail.selection)}` : detail.page ? t('，第 {0} 页', detail.page) : '';
+    const where = detail.sheet ? t('，{0}', rangeLabel(detail.sheet, detail.selection)) : detail.page ? t('，第 {0} 页', detail.page) : '';
     askAgent(t('关于「{0}」{1}：', tab.name, where));
   };
   const closeDialog = React.useCallback(() => setDialog(null), []);

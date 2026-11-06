@@ -4,6 +4,7 @@
  * agent's edit can always be taken back.
  */
 import { createHash } from 'node:crypto';
+import { t } from './i18n.js';
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
@@ -102,7 +103,7 @@ export function restoreVersion(path, id) {
   const folder = folderFor(path);
   const versions = readVersions(folder);
   const version = id ? versions.find((item) => item.id === id) : versions.find(canStepBackTo);
-  if (!version) throw httpError(404, 'no-version', '没有找到可以恢复的版本。');
+  if (!version) throw httpError(404, 'no-version', t('没有找到可以恢复的版本。'));
   const content = readFileSync(join(folder, `${version.id}.bin`));
   if (!id) writeFileSync(join(folder, `${version.id}.json`), JSON.stringify({ ...version, undone: true }));
   backupVersion(path, '恢复', { beforeRestore: true });

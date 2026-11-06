@@ -4,6 +4,8 @@
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件：你和 Agent 一起直接改你自己的表格。Agent 改了哪些格子，会在你开着的表格里亮出来，所有内容都留在本机。
 
+界面跟随 Harness 的语言，支持中文和英文。
+
 ![在对话里说一句，Agent 改好开着的表格，改过的格子用蓝框标出](docs/hero.zh-CN.svg)
 
 ## 功能
@@ -21,7 +23,7 @@
 
 ```bash
 DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
-"$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/download/v1.7.0/dsh-doc-viewer-1.7.0.tgz
+"$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/download/v1.8.0/dsh-doc-viewer-1.8.0.tgz
 ```
 
 然后重启 Harness。

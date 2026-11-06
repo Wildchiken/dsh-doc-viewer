@@ -6,6 +6,7 @@
  * processing is local. The `officeToPdf` service is reused when available.
  */
 import { spawn } from 'node:child_process';
+import { t, withLang } from './src/host/i18n.js';
 import { createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -67,9 +68,16 @@ export function apply(ctx) {
  * @param {import('node:http').ServerResponse} res
  */
 async function handle(ctx, req, res) {
+  // Messages follow the language the page is shown in; the agent's tools then use it too.
+  const language = req.headers['x-dvd-lang'];
+  return withLang(Array.isArray(language) ? language[0] : language, () => handleRequest(ctx, req, res));
+}
+
+/** @param {any} ctx @param {import('node:http').IncomingMessage} req @param {import('node:http').ServerResponse} res */
+async function handleRequest(ctx, req, res) {
   const refused = refusalOf(ctx, req);
   if (refused !== undefined) {
-    await sendJson(res, refused, { ok: false, code: refused === 401 ? 'unauthorized' : 'forbidden', message: '仅允许本机页面访问文档查看器。' });
+    await sendJson(res, refused, { ok: false, code: refused === 401 ? 'unauthorized' : 'forbidden', message: t('仅允许本机页面访问文档查看器。') });
     return;
   }
   const url = new URL(req.url || '/', 'http://127.0.0.1');
@@ -77,7 +85,7 @@ async function handle(ctx, req, res) {
   try {
     pathname = decodeURIComponent(url.pathname);
   } catch {
-    throw httpError(400, 'bad-url', '请求地址格式不正确。');
+    throw httpError(400, 'bad-url', t('请求地址格式不正确。'));
   }
   if (pathname.startsWith(`${ROUTE_PREFIX}/assets/`)) {
     await serveAsset(pathname.slice(`${ROUTE_PREFIX}/assets/`.length), res);
@@ -118,7 +126,7 @@ async function handle(ctx, req, res) {
       const body = await readJson(req, BODY_JSON_MAX);
       const path = resolve(String(body.path || ''));
       requireOpened(path);
-      if (typeof body.text !== 'string' && (!Array.isArray(body.sheets) || body.sheets.length === 0)) throw httpError(400, 'no-sheet', '没有可保留的内容');
+      if (typeof body.text !== 'string' && (!Array.isArray(body.sheets) || body.sheets.length === 0)) throw httpError(400, 'no-sheet', t('没有可保留的内容'));
       const at = saveRecovery({ ...body, path });
       await sendJson(res, 200, { ok: true, at });
       return;
@@ -146,7 +154,7 @@ async function handle(ctx, req, res) {
     case 'POST /api/pick-save': {
       const body = await readJson(req, 64 * 1024);
       const directory = body.directory && isAbsolute(body.directory) && existsSync(body.directory) ? body.directory : resolveRoot(ctx, body.workspaceRoot);
-      let name = safeName(body.name || '未命名');
+      let name = safeName(body.name || t('未命名'));
       // A new file's suggested name is one not taken yet, so saving it never asks to replace anything.
       if (body.fresh) name = basename(uniquePath(directory, basename(name, extname(name)), extname(name) || '.xlsx'));
       const path = await pickSaveLocation({ directory, name, message: body.message });
@@ -159,14 +167,14 @@ async function handle(ctx, req, res) {
     }
     case 'GET /api/versions': {
       const path = resolve(String(url.searchParams.get('path') || ''));
-      if (!allowedFiles.has(path)) throw httpError(403, 'not-authorized', '文件尚未在文档页打开。');
+      if (!allowedFiles.has(path)) throw httpError(403, 'not-authorized', t('文件尚未在文档页打开。'));
       await sendJson(res, 200, { ok: true, versions: listVersions(path) });
       return;
     }
     case 'POST /api/versions/restore': {
       const body = await readJson(req, 64 * 1024);
       const path = resolve(String(body.path || ''));
-      if (!allowedFiles.has(path)) throw httpError(403, 'not-authorized', '文件尚未在文档页打开。');
+      if (!allowedFiles.has(path)) throw httpError(403, 'not-authorized', t('文件尚未在文档页打开。'));
       const version = await withFileLock(path, () => restoreVersion(path, body.id));
       await sendJson(res, 200, { ok: true, version, mtime: statSync(path).mtimeMs });
       return;
@@ -230,7 +238,7 @@ async function handle(ctx, req, res) {
       const root = resolveRoot(ctx, body.workspaceRoot);
       const sourcePath = body.sourcePath ? resolveInputPath(root, body.sourcePath) : undefined;
       if (body.mode === 'in-place') {
-        if (!sourcePath) throw httpError(400, 'bad-path', '缺少原文件路径');
+        if (!sourcePath) throw httpError(400, 'bad-path', t('缺少原文件路径'));
         requireOpened(sourcePath);
         const result = await saveInPlace({ path: sourcePath, sheets: body.sheets, openedMtime: body.openedMtime, structure: body.structure });
         if (result.inPlace) discardRecovery(sourcePath);
@@ -277,12 +285,12 @@ async function handle(ctx, req, res) {
         await sendJson(res, 200, {
           ok: true,
           requiresConfirmation: true,
-          warnings: [{ code: 'lossy', message: 'PDF 转 Word/Excel/CSV 是有损转换：复杂排版、图片、表格和分栏可能丢失。确认后才会开始转换。' }],
+          warnings: [{ code: 'lossy', message: t('PDF 转 Word/Excel/CSV 是有损转换：复杂排版、图片、表格和分栏可能丢失。确认后才会开始转换。') }],
         });
         return;
       }
       if (body.outputPath) {
-        if (paths.length !== 1) throw httpError(400, 'bad-path', '指定保存位置时只能转换一个文件');
+        if (paths.length !== 1) throw httpError(400, 'bad-path', t('指定保存位置时只能转换一个文件'));
         requireChosen(body.outputPath);
       }
       const result = await convertMany(ctx, paths, body.target, { workspaceRoot: root, outputPath: body.outputPath });
@@ -307,7 +315,7 @@ async function handle(ctx, req, res) {
       return;
     }
     default:
-      await sendJson(res, 404, { ok: false, code: 'not-found', message: '接口不存在' });
+      await sendJson(res, 404, { ok: false, code: 'not-found', message: t('接口不存在') });
   }
 }
 
@@ -351,14 +359,14 @@ function resolveRoot(ctx, requested) {
 function safeInside(root, path) {
   const target = resolve(root, path || '.');
   if (target !== root && !target.startsWith(root + sep)) {
-    throw httpError(403, 'outside-workspace', '只能浏览当前工作区内的文件。');
+    throw httpError(403, 'outside-workspace', t('只能浏览当前工作区内的文件。'));
   }
   return target;
 }
 
 /** @param {string} root @param {unknown} path */
 function resolveInputPath(root, path) {
-  if (!path || typeof path !== 'string') throw httpError(400, 'bad-path', '缺少文件路径');
+  if (!path || typeof path !== 'string') throw httpError(400, 'bad-path', t('缺少文件路径'));
   return resolve(root, path);
 }
 
@@ -369,22 +377,22 @@ function resolveInputPath(root, path) {
  * @param {string} path
  */
 function requireOpened(path) {
-  if (!allowedFiles.has(resolve(path))) throw httpError(403, 'not-authorized', '只能保存在文档页打开的文件。');
+  if (!allowedFiles.has(resolve(path))) throw httpError(403, 'not-authorized', t('只能保存在文档页打开的文件。'));
   return path;
 }
 
 /** @param {unknown} path a place picked in the save panel */
 function requireChosen(path) {
   if (typeof path !== 'string' || !isAbsolute(path) || !chosenTargets.has(resolve(path))) {
-    throw httpError(403, 'not-authorized', '保存位置需要在存储面板里选择。');
+    throw httpError(403, 'not-authorized', t('保存位置需要在存储面板里选择。'));
   }
   return path;
 }
 
 /** @param {string} path */
 function assertReadable(path) {
-  if (!existsSync(path)) throw httpError(404, 'not-found', `文件不存在：${path}`);
-  if (!statSync(path).isFile()) throw httpError(400, 'not-file', '目标不是文件。');
+  if (!existsSync(path)) throw httpError(404, 'not-found', t('文件不存在：{0}', path));
+  if (!statSync(path).isFile()) throw httpError(400, 'not-file', t('目标不是文件。'));
 }
 
 /**
@@ -407,7 +415,7 @@ function readBody(req, limit) {
       size += chunk.length;
       if (size > limit) {
         chunks.length = 0;
-        settle(undefined, httpError(413, 'too-large', '请求体过大，请分批处理。'));
+        settle(undefined, httpError(413, 'too-large', t('请求体过大，请分批处理。')));
         return;
       }
       chunks.push(Buffer.from(chunk));
@@ -423,7 +431,7 @@ async function readJson(req, limit) {
   try {
     return JSON.parse(body.toString('utf8'));
   } catch {
-    throw httpError(400, 'bad-json', '请求 JSON 格式不正确。');
+    throw httpError(400, 'bad-json', t('请求 JSON 格式不正确。'));
   }
 }
 
@@ -436,7 +444,7 @@ async function readJson(req, limit) {
  * @param {URL} url
  */
 async function importFile(ctx, req, res, url) {
-  const name = safeName(url.searchParams.get('name') || '上传文件');
+  const name = safeName(url.searchParams.get('name') || t('上传文件'));
   const extension = extname(name) || '.bin';
   const body = await readBody(req, BODY_UPLOAD_MAX);
   // Each dropped file gets its own folder so it keeps its own name.
@@ -449,10 +457,10 @@ async function importFile(ctx, req, res, url) {
 /** @param {URL} url @param {import('node:http').ServerResponse} res */
 async function serveFile(url, res) {
   const path = url.searchParams.get('path');
-  if (!path) throw httpError(400, 'bad-path', '缺少 path');
+  if (!path) throw httpError(400, 'bad-path', t('缺少 path'));
   const absolute = resolve(path);
   if (!allowedFiles.has(absolute)) {
-    throw httpError(403, 'not-authorized', '文件尚未通过文档查看器打开。');
+    throw httpError(403, 'not-authorized', t('文件尚未通过文档查看器打开。'));
   }
   assertReadable(absolute);
   res.writeHead(200, {
@@ -485,13 +493,13 @@ function pipeFile(path, res) {
  */
 function reveal(path) {
   const absolute = resolve(path);
-  if (!allowedFiles.has(absolute) || !existsSync(absolute)) throw httpError(403, 'not-authorized', '只能在访达中显示文档页打开或生成的文件。');
+  if (!allowedFiles.has(absolute) || !existsSync(absolute)) throw httpError(403, 'not-authorized', t('只能在访达中显示文档页打开或生成的文件。'));
   const [command, args] = process.platform === 'darwin' ? ['open', ['-R', absolute]]
     : process.platform === 'win32' ? ['explorer.exe', [`/select,${absolute}`]]
     : ['xdg-open', [dirname(absolute)]];
   return new Promise((resolveReveal, reject) => {
     const child = spawn(command, args, { stdio: 'ignore', detached: true });
-    child.once('error', (error) => reject(httpError(500, 'reveal-failed', `无法打开文件夹：${error.message}`)));
+    child.once('error', (error) => reject(httpError(500, 'reveal-failed', t('无法打开文件夹：{0}', error.message))));
     child.once('spawn', () => {
       child.unref();
       resolveReveal();
@@ -534,7 +542,7 @@ async function serveAsset(relative, res) {
     }
   }
   if (!found) {
-    await sendJson(res, 404, { ok: false, code: 'asset-not-found', message: '资源不存在' });
+    await sendJson(res, 404, { ok: false, code: 'asset-not-found', message: t('资源不存在') });
     return;
   }
   res.writeHead(200, {
@@ -568,7 +576,7 @@ async function sendJson(res, status, payload) {
 /** @param {string} directory @param {string} root */
 function listDirectory(directory, root) {
   if (!existsSync(directory) || !statSync(directory).isDirectory()) {
-    throw httpError(404, 'not-found', '目录不存在');
+    throw httpError(404, 'not-found', t('目录不存在'));
   }
   const entries = [];
   try {
@@ -582,7 +590,7 @@ function listDirectory(directory, root) {
       }
     }
   } catch (error) {
-    throw httpError(500, 'list-failed', `无法列出目录：${error instanceof Error ? error.message : String(error)}`);
+    throw httpError(500, 'list-failed', t('无法列出目录：{0}', error instanceof Error ? error.message : String(error)));
   }
   entries.sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name, 'zh-CN') : a.type === 'directory' ? -1 : 1));
   return {

@@ -4,6 +4,7 @@
  * as their content, a table that reads as a table, and page numbers.
  */
 import { AlignmentType, BorderStyle, Document, ExternalHyperlink, Footer, HeadingLevel, Packer, PageNumber, Paragraph, ShadingType, Table, TableCell, TableLayoutType, TableRow, TextRun, WidthType } from 'docx';
+import { t } from './i18n.js';
 import { marked } from 'marked';
 import * as XLSX from '../../vendor/xlsx/xlsx.mjs';
 
@@ -155,7 +156,7 @@ export async function textToDocx(text, options) {
 
   const document = new Document({
     title: options.title,
-    creator: 'DeepSeek Harness 文档',
+    creator: t('DeepSeek Harness 文档'),
     styles: {
       default: {
         document: { run: { font: FONT, size: 21, color: '1D1D1F' }, paragraph: { spacing: { line: 330, after: options.markdown ? 120 : 0 } } },
@@ -318,7 +319,7 @@ function inlineRuns(tokens, style = {}) {
       const children = inlineRuns(token.tokens, { ...style, color: LINK });
       if (/^(https?:|mailto:)/i.test(token.href)) runs.push(new ExternalHyperlink({ link: token.href, children }));
       else runs.push(...children);
-    } else if (token.type === 'image') runs.push(new TextRun({ ...style, text: `[图片：${token.text || token.href}]`, color: SECONDARY }));
+    } else if (token.type === 'image') runs.push(new TextRun({ ...style, text: t('[图片：{0}]', token.text || token.href), color: SECONDARY }));
     else if (token.type === 'html') {
       if (/^<br\s*\/?>$/i.test(token.text)) runs.push(new TextRun({ ...style, break: 1 }));
       // Other inline tags only wrap text, which arrives as its own tokens.

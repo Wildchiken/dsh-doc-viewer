@@ -6,7 +6,7 @@ A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin for
 
 ![Asked in the conversation, the agent edits the open table and the changed cells are outlined](docs/hero.svg)
 
-The interface is Chinese only for now.
+The interface follows the Harness language (English or Chinese).
 
 ## Features
 
@@ -23,7 +23,7 @@ Requires DeepSeek Harness 0.2.2 or later.
 
 ```bash
 DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
-"$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/download/v1.7.0/dsh-doc-viewer-1.7.0.tgz
+"$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/download/v1.8.0/dsh-doc-viewer-1.8.0.tgz
 ```
 
 Then restart Harness.

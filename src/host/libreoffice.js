@@ -7,6 +7,7 @@
  * recalculation, PDF page rasterisation for OCR, and legacy WPS conversions.
  */
 import { spawn } from 'node:child_process';
+import { t } from './i18n.js';
 import { copyFileSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join } from 'node:path';
@@ -43,7 +44,7 @@ export function workbookExtension(input) {
  */
 export async function runKit(args, options = {}) {
   const cli = resolveCli();
-  if (!cli) throw httpError(503, 'office-engine-unavailable', '本机未找到 LibreOffice 转换引擎，无法完成这个 Office/PDF 操作。');
+  if (!cli) throw httpError(503, 'office-engine-unavailable', t('本机未找到 LibreOffice 转换引擎，无法完成这个 Office/PDF 操作。'));
   const timeoutMs = options.timeoutMs ?? 120_000;
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [cli, ...args], {
@@ -57,13 +58,13 @@ export async function runKit(args, options = {}) {
       child.kill('SIGTERM');
       // A kit stuck inside LibreOffice ignores SIGTERM; left alone it would stay forever.
       setTimeout(() => { if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL'); }, 2000).unref();
-      reject(httpError(504, 'office-timeout', '转换超时，请尝试缩小文件或分批处理。'));
+      reject(httpError(504, 'office-timeout', t('转换超时，请尝试缩小文件或分批处理。')));
     }, timeoutMs);
     child.stdout.on('data', (chunk) => { stdout += chunk; });
     child.stderr.on('data', (chunk) => { stderr += chunk; });
     child.on('error', (error) => {
       clearTimeout(timer);
-      reject(httpError(503, 'office-engine-failed', `无法启动 LibreOffice 引擎：${error.message}`, error));
+      reject(httpError(503, 'office-engine-failed', t('无法启动 LibreOffice 引擎：{0}', error.message), error));
     });
     child.on('close', (code) => {
       clearTimeout(timer);
@@ -81,7 +82,7 @@ function parseKitError(stderr, stdout, code) {
   const payload = parseLastJson(stdout) || parseLastJson(stderr);
   if (payload?.error) return String(payload.error);
   const lines = `${stderr}\n${stdout}`.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  return lines.slice(-3).join(' ') || `LibreOffice 转换失败（退出码 ${code}）`;
+  return lines.slice(-3).join(' ') || t('LibreOffice 转换失败（退出码 {0}）', code);
 }
 
 /** @param {string} text */
@@ -104,7 +105,7 @@ export async function recalculateWorkbook(input, options = {}) {
   try {
     const output = join(work, `${basename(input, extname(input))}-${token().slice(0, 8)}.xlsx`);
     const { stdout } = await runKit(['recalculate', '--input', input, '--output', output], { timeoutMs: options.timeoutMs ?? 120_000 });
-    if (!existsSync(output)) throw httpError(502, 'office-failed', 'LibreOffice 没有生成重算后的工作簿。');
+    if (!existsSync(output)) throw httpError(502, 'office-failed', t('LibreOffice 没有生成重算后的工作簿。'));
     const result = parseLastJson(stdout) || {};
     return { path: output, missingFonts: result.missingFonts || [], cleanup: () => rmSync(work, { recursive: true, force: true }) };
   } catch (error) {
@@ -123,7 +124,7 @@ export async function recalculateWorkbook(input, options = {}) {
 export async function convertWithCli(input, output, options = {}) {
   ensureDir(dirname(output));
   const { stdout } = await runKit(['convert', '--input', input, '--output', output], { timeoutMs: options.timeoutMs ?? 120_000 });
-  if (!existsSync(output)) throw httpError(502, 'office-failed', 'LibreOffice 没有生成输出文件。');
+  if (!existsSync(output)) throw httpError(502, 'office-failed', t('LibreOffice 没有生成输出文件。'));
   return parseLastJson(stdout) || {};
 }
 
@@ -172,7 +173,7 @@ export async function convertOfficeToPdf(ctx, input, output, extension) {
   if (provider && providerExt) {
     const bytes = readFileSync(input);
     if (bytes.byteLength > 50 * 1024 * 1024) {
-      throw httpError(413, 'too-large', '文件超过 50 MB，无法使用内置字体转换，请先瘦身。');
+      throw httpError(413, 'too-large', t('文件超过 50 MB，无法使用内置字体转换，请先瘦身。'));
     }
     // One version for the whole conversion: the provider gives up when what it reads
     // claims to be a different version from the one it was promised.

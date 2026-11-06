@@ -231,7 +231,7 @@ export function ConvertDialog({ tabs, onClose, onOpenPath, toast, track }) {
             <div className="dvd-result" key={result.source}>
               <Icon name={result.ok ? 'check' : 'warning'} size={15} className={result.ok ? 'dvd-ok' : 'dvd-bad'} />
               <span className="dvd-row-name" title={result.ok ? result.output : result.message}>
-                {result.ok ? result.output.split('/').pop() : `${result.source.split('/').pop()}：${result.message}`}
+                {result.ok ? result.output.split('/').pop() : t('{0}：{1}', result.source.split('/').pop(), result.message)}
               </span>
               {result.ok && <button type="button" className="dvd-btn plain" onClick={() => onOpenPath(result.output)}>{t('打开')}</button>}
               {result.ok && <button type="button" className="dvd-iconbtn small" aria-label={t('复制路径')} title={t('复制路径')} onClick={() => copy(result.output)}><Icon name="copy" size={14} /></button>}

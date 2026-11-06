@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.0
+
+- The interface and the agent's tool results follow the Harness language: English or Chinese.
+- Messages read naturally in English, including punctuation and number formats.
+
 ## 1.7.0
 
 First public release.

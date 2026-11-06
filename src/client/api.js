@@ -1,4 +1,6 @@
 /** Same-origin API used by the viewer page. */
+import { lang, t } from './i18n.js';
+
 const PREFIX = '/dsh-doc-viewer/api';
 
 /** @param {Response} response */
@@ -23,7 +25,7 @@ async function post(path, body) {
   const response = await fetch(`${PREFIX}${path}`, {
     method: 'POST',
     credentials: 'same-origin',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-dvd-lang': lang() },
     body: JSON.stringify(body),
   });
   return parse(response);
@@ -31,7 +33,7 @@ async function post(path, body) {
 
 /** @param {string} query */
 async function get(query) {
-  return parse(await fetch(`${PREFIX}${query}`, { credentials: 'same-origin' }));
+  return parse(await fetch(`${PREFIX}${query}`, { credentials: 'same-origin', headers: { 'x-dvd-lang': lang() } }));
 }
 
 /** @param {string} path */
@@ -45,7 +47,7 @@ export async function upload(file) {
   const response = await fetch(`${PREFIX}/import?name=${encodeURIComponent(file.name)}${workspace ? `&root=${encodeURIComponent(workspace)}` : ''}`, {
     method: 'POST',
     credentials: 'same-origin',
-    headers: { 'content-type': 'application/octet-stream' },
+    headers: { 'content-type': 'application/octet-stream', 'x-dvd-lang': lang() },
     body: file,
   });
   return parse(response);

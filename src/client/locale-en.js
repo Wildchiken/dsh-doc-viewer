@@ -225,6 +225,8 @@ export default {
   '改了 {0} 个单元格': 'changed {0} cells',
   '修改了文件': 'changed the file',
   '，': ', ',
+  '，{0}': ', {0}',
+  '{0}：{1}': '{0}: {1}',
   'Agent {0}，另存为 {1}{2}': 'The agent {0}, saved as {1}{2}',
   '（原文件有你未保存的修改，所以没有覆盖它）': ' (the original has your unsaved edits, so it was left alone)',
   '看原文件': 'View the original',
