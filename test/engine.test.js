@@ -835,6 +835,32 @@ describe('statistics', () => {
     assert.deepEqual(result.groups, [{ key: '甲', sum: 5, count: 1 }]);
   });
 
+  describe('a total row', () => {
+    const celldata = [
+      { r: 0, c: 0, v: { v: 'Item' } }, { r: 0, c: 1, v: { v: 'Total' } },
+      { r: 1, c: 0, v: { v: 'A' } }, { r: 1, c: 1, v: { v: 30 } },
+      { r: 2, c: 0, v: { v: 'B' } }, { r: 2, c: 1, v: { v: 60 } },
+      { r: 3, c: 0, v: { v: 'Sum' } }, { r: 3, c: 1, v: { v: 90, f: '=SUM(B2:B3)' } },
+    ];
+    const stats = (request) => computeStats([{ name: 'S', celldata }], request);
+
+    test('is left out, so nothing is added twice', () => {
+      const result = stats({ valueColumn: 'Total' });
+      assert.equal(result.summary.sum, 90);
+      assert.deepEqual(result.totals, [{ row: 4, formula: '=SUM(B2:B3)' }]);
+      assert.deepEqual(stats({ groupBy: 'Item', valueColumn: 'Total' }).groups.map((group) => group.key).sort(), ['A', 'B']);
+    });
+
+    test('counts when asked for', () => {
+      assert.equal(stats({ valueColumn: 'Total', includeTotals: true }).summary.sum, 180);
+    });
+
+    test('is only one that adds up its own column above it', () => {
+      const other = celldata.map((cell) => (cell.v.f ? { ...cell, v: { v: 30, f: '=SUM(B2:B2)' } } : cell));
+      assert.deepEqual(computeStats([{ name: 'S', celldata: other }], {}).totals, []);
+    });
+  });
+
   describe('the first row of a range', () => {
     const celldata = [
       ...['部门', '数量', '单价'].map((v, c) => ({ r: 0, c, v: { v } })),

@@ -17,6 +17,16 @@ import { ensureDir, httpError, token } from './util.js';
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 /** @returns {string|undefined} */
+/**
+ * Why LibreOffice gave no result, short enough to sit inside another sentence.
+ * @param {unknown} error
+ */
+export function engineReason(error) {
+  if (/** @type {any} */ (error)?.code === 'office-engine-unavailable') return t('本机没有 LibreOffice');
+  const message = (error instanceof Error ? error.message : String(error)).trim().replace(/[。.！!]+$/, '');
+  return t('LibreOffice 没能计算：{0}', message);
+}
+
 export function resolveCli() {
   // 'none' hides LibreOffice, as on a machine without DeepSeek Harness (CI).
   if (process.env.DSH_LIBREOFFICE_CLI === 'none') return undefined;

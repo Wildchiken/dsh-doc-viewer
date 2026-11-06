@@ -23,7 +23,7 @@
 
 ```bash
 DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
-"$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/download/v1.8.0/dsh-doc-viewer-1.8.0.tgz
+"$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/download/v1.8.1/dsh-doc-viewer-1.8.1.tgz
 ```
 
 然后重启 Harness。

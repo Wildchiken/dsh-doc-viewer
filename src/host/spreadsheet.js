@@ -17,7 +17,7 @@ import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { decodeText, looksDelimited } from './encoding.js';
-import { recalculateWorkbook } from './libreoffice.js';
+import { engineReason, recalculateWorkbook } from './libreoffice.js';
 import { layoutSheetForPrint } from './print.js';
 import {
   ensureDir,
@@ -640,7 +640,7 @@ export async function loadSpreadsheet(path, options = {}) {
       // Fonts matter when exporting a PDF, where they are reported; the grid paints with its own.
       missingFonts = recalc.missingFonts || [];
     } catch (error) {
-      warnings.push({ code: 'recalc', message: t('LibreOffice 重算没有成功（{0}），表格里的公式改由内置引擎计算，个别函数可能不支持。', error instanceof Error ? error.message : String(error)) });
+      warnings.push({ code: 'recalc', message: t('{0}，表格里的公式改由内置引擎计算，个别函数可能不支持。', engineReason(error)) });
     } finally {
       if (tempDir) rmSync(tempDir, { recursive: true, force: true });
     }
@@ -1165,6 +1165,20 @@ function firstRowIsHeader(matrix, startRow) {
  * @param {any[]} sheets
  * @param {{ sheet?: string, range?: string, groupBy?: string, valueColumn?: string, agg?: string, hasHeader?: boolean }} request
  */
+/**
+ * The formula when it is SUM or SUBTOTAL over at least two rows above it in its own column.
+ * @param {string|undefined} formula @param {number} c @param {number} r zero-based
+ */
+function totalOver(formula, c, r) {
+  if (typeof formula !== 'string') return undefined;
+  const match = /^=?\s*(?:SUM|SUBTOTAL\(\s*(?:9|109)\s*,)\s*\(?\s*\$?([A-Z]{1,3})\$?(\d+)\s*:\s*\$?([A-Z]{1,3})\$?(\d+)\s*\)\s*$/i.exec(formula);
+  if (!match) return undefined;
+  const [, c1, r1, c2, r2] = match;
+  const column = XLSX.utils.encode_col(c);
+  const [top, bottom] = [Number(r1), Number(r2)].sort((a, b) => a - b);
+  return c1.toUpperCase() === column && c2.toUpperCase() === column && bottom <= r && bottom - top >= 1 ? formula.replace(/^(?!=)/, '=') : undefined;
+}
+
 export function computeStats(sheets, request = {}) {
   const sheet = request.sheet ? sheets.find((entry) => entry.name === request.sheet) : sheets[0];
   if (!sheet) {
@@ -1185,7 +1199,16 @@ export function computeStats(sheets, request = {}) {
   const header = hasHeader && matrix.length > 0
     ? matrix[0].map((cell, index) => (cell ? String(displayValue(cell)) : '') || lettered(index))
     : (matrix[0] || []).map((_, index) => lettered(index));
-  const body = hasHeader ? matrix.slice(1) : matrix;
+  const rows = hasHeader ? matrix.slice(1) : matrix;
+  const firstBodyRow = bounds.s.r + (hasHeader ? 1 : 0);
+  // A row that adds up the rows above it would count everything twice.
+  const totals = request.includeTotals ? [] : rows.flatMap((row, index) => {
+    const r = firstBodyRow + index;
+    const formula = row.map((cell, c) => totalOver(cell?.f, bounds.s.c + c, r)).find(Boolean);
+    return formula ? [{ row: r + 1, formula }] : [];
+  });
+  const totalRows = new Set(totals.map((item) => item.row - 1));
+  const body = rows.filter((_, index) => !totalRows.has(firstBodyRow + index));
   const groupIndex = columnIndex(request.groupBy, header, bounds);
   const valueIndex = columnIndex(request.valueColumn, header, bounds);
   if (request.groupBy && groupIndex === undefined) throw httpError(400, 'bad-column', t('分组列“{0}”不在所选范围内。可用的列：{1}', request.groupBy, header.join(t('、'))));
@@ -1217,7 +1240,7 @@ export function computeStats(sheets, request = {}) {
     min: numeric.length ? numeric.reduce((min, value) => Math.min(min, value)) : null,
     max: numeric.length ? numeric.reduce((max, value) => Math.max(max, value)) : null,
   };
-  const result = { summary, header, hasHeader, groups: [] };
+  const result = { summary, header, hasHeader, totals, groups: [] };
   if (groupIndex !== undefined) {
     const groups = new Map();
     for (const row of body) {

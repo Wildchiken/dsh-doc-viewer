@@ -18,7 +18,13 @@ export function lang() {
  */
 export function t(zh, ...values) {
   const phrase = lang() === 'zh' ? zh : (EN[zh] ?? zh);
-  return values.length ? phrase.replace(/\{(\d+)\}/g, (match, index) => (values[index] === undefined ? match : String(values[index]))) : phrase;
+  if (!values.length) return phrase;
+  // {0} is the value; {0:cell|cells} is the value and the word that agrees with it.
+  return phrase.replace(/\{(\d+)(?::([^|}]*)\|([^}]*))?\}/g, (match, index, one, many) => {
+    const value = values[index];
+    if (value === undefined) return match;
+    return one === undefined ? String(value) : `${value} ${Number(value) === 1 ? one : many}`;
+  });
 }
 
 /** Re-render when Harness switches language. */

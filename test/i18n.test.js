@@ -8,7 +8,7 @@ import { lang, t, withLang } from '../src/host/i18n.js';
 const KEY = /(?<![\w$.])t\('((?:[^'\\]|\\.)*)'/g;
 /** The phrase as JavaScript reads the literal: escapes such as \n become characters. */
 const unescape = (literal) => JSON.parse(`"${literal.replace(/\\'/g, "'").replace(/"/g, '\\"')}"`);
-const placeholders = (text) => [...text.matchAll(/\{\d+\}/g)].map((m) => m[0]).sort().join(',');
+const placeholders = (text) => [...text.matchAll(/\{(\d+)(?::[^}]*)?\}/g)].map((m) => m[1]).sort().join(',');
 
 /** @param {URL[]} files */
 function phrasesIn(files) {
@@ -63,6 +63,14 @@ describe('Host message language', () => {
     assert.equal(lang(), 'en', 'a tool call outside any request uses the language last seen');
     withLang('zh', () => {});
     assert.equal(lang(), 'zh');
+  });
+
+  test('a count picks the word that agrees with it', () => {
+    withLang('en', () => {
+      assert.equal(t('已新建 {0}，{1} 行。', 'a.xlsx', 1), 'Created a.xlsx with 1 row.');
+      assert.equal(t('已新建 {0}，{1} 行。', 'a.xlsx', 3), 'Created a.xlsx with 3 rows.');
+    });
+    assert.equal(withLang('zh', () => t('已新建 {0}，{1} 行。', 'a.xlsx', 1)), '已新建 a.xlsx，1 行。');
   });
 
   test('a request without a language changes nothing', () => {

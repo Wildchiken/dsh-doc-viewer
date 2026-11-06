@@ -11,7 +11,7 @@ import { basename, dirname, extname, join } from 'node:path';
 import { Document, Packer, PageBreak, Paragraph, TextRun } from 'docx';
 import * as XLSX from '../../vendor/xlsx/xlsx.mjs';
 import ExcelJS from 'exceljs';
-import { convertOfficeToPdf, convertLegacyOffice, recalculateWorkbook } from './libreoffice.js';
+import { convertOfficeToPdf, convertLegacyOffice, engineReason, recalculateWorkbook } from './libreoffice.js';
 import { textToDocx } from './print.js';
 import { backupVersion, withFileLock, writeAtomically } from './versions.js';
 import { featuresLostOnSave, hasFormulas, patchXlsx, withFormulaResults } from './xlsx-patch.js';
@@ -355,10 +355,10 @@ async function finishWorkbook(bytes, warnings, timeoutMs = SAVE_CALCULATION_MS) 
     // Simple formulas are worked out here, so the file and whoever reads it still have their results.
     const lite = await liteResults(bytes);
     resultOf = lite.resultOf;
-    const reason = error instanceof Error ? error.message : String(error);
+    const reason = engineReason(error);
     warnings?.push(lite.missing === 0
-      ? { code: 'results-lite', message: t('LibreOffice 没能计算（{0}），公式结果已用内置计算补上。', reason) }
-      : { code: 'results-missing', message: t('公式结果没能全部算出来（{0}）：{1} 个已用内置计算补上，{2} 个用到了内置计算不支持的写法，文件里只存了公式，用 Excel 打开时会重新计算。', reason, lite.filled, lite.missing) });
+      ? { code: 'results-lite', message: t('{0}，公式结果已用内置计算补上。', reason) }
+      : { code: 'results-missing', message: t('{0}。{1} 个公式结果已用内置计算补上，{2} 个用到了内置计算不支持的写法，文件里只存了公式，用 Excel 打开时会重新计算。', reason, lite.filled, lite.missing) });
   }
   return withFormulaResults(bytes, resultOf);
 }

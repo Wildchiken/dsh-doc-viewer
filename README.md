@@ -4,9 +4,9 @@ English · [简体中文](README.zh-CN.md)
 
 A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin for editing your own spreadsheets in place, together with the agent. The cells it changes light up in the table you have open, and everything stays on your machine.
 
-![Asked in the conversation, the agent edits the open table and the changed cells are outlined](docs/hero.svg)
-
 The interface follows the Harness language (English or Chinese).
+
+![Asked in the conversation, the agent edits the open table and the changed cells are outlined](docs/hero.svg)
 
 ## Features
 
@@ -23,7 +23,7 @@ Requires DeepSeek Harness 0.2.2 or later.
 
 ```bash
 DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
-"$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/download/v1.8.0/dsh-doc-viewer-1.8.0.tgz
+"$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/download/v1.8.1/dsh-doc-viewer-1.8.1.tgz
 ```
 
 Then restart Harness.
@@ -37,14 +37,7 @@ To update, run `plugin --profile desktop remove dsh-doc-viewer`, then `add` the 
 - 20,000 rows can take tens of seconds to open.
 - OCR needs macOS 13 or later.
 
-## Development
-
-```bash
-pnpm install
-pnpm build
-pnpm test
-pnpm pack
-```
+More in the [guide](docs/guide.md).
 
 ## License
 

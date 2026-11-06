@@ -94,7 +94,10 @@ function resultOf() {
 /** @param {unknown} warnings */
 function warningText(warnings) {
   if (!Array.isArray(warnings) || warnings.length === 0) return '';
-  return `\n${t('提示：')}\n${warnings.map((warning) => `- ${warning.message || warning.code}`).join('\n')}`;
+  // The saved file's results say what the agent needs; the page's recalculation would repeat why.
+  const saved = warnings.some((warning) => String(warning.code).startsWith('results-'));
+  const shown = saved ? warnings.filter((warning) => warning.code !== 'recalc') : warnings;
+  return `\n${t('提示：')}\n${shown.map((warning) => `- ${warning.message || warning.code}`).join('\n')}`;
 }
 
 /**
@@ -173,8 +176,9 @@ const LISTED_WRITTEN = 30;
  * @param {{ written: any[], dependents: any[], uncalculated?: number }} changes
  */
 export function describeChanges({ written, dependents, uncalculated = 0 }) {
+  // A formula with no result was not worked out this time, which is not the same as empty.
   const line = (item) => (item.formula
-    ? t('- {0}!{1}（{2}）：{3} → {4}', item.sheet, item.address, item.formula, item.before || t('空'), item.after || t('空'))
+    ? t('- {0}!{1}（{2}）：{3} → {4}', item.sheet, item.address, item.formula, item.before || t('空'), item.after || t('未算出'))
     : t('- {0}!{1}：{2} → {3}', item.sheet, item.address, item.before || t('空'), item.after || t('空')));
   const lines = written.slice(0, LISTED_WRITTEN).map(line);
   if (written.length > LISTED_WRITTEN) lines.push(t('- 另有 {0} 个写入的单元格', written.length - LISTED_WRITTEN));
@@ -410,6 +414,7 @@ export function registerTools(ctx) {
         valueColumn: { type: 'string', description: 'Header or column letter to aggregate.' },
         agg: { type: 'string', enum: ['sum', 'average', 'count', 'max', 'min'], description: 'Aggregation for grouped results.' },
         hasHeader: { type: 'boolean', description: 'Whether the first selected row is headers and left out of the numbers. Decided from its content when omitted: a selection of data counts every cell.' },
+        includeTotals: { type: 'boolean', description: 'Count rows that already total the rows above them (=SUM or =SUBTOTAL over the same column). Left out by default so nothing is added twice.' },
         save: { type: 'boolean', description: 'Save a new xlsx containing the statistics sheet.' },
       },
       additionalProperties: false,
@@ -426,11 +431,12 @@ export function registerTools(ctx) {
         t('合计：{0}｜平均：{1}｜最大：{2}｜最小：{3}', summary.sum, summary.average ?? '—', summary.max ?? '—', summary.min ?? '—'),
         t('计数：{0}（其中数字 {1}）｜去重计数：{2}', summary.count, summary.numericCount, summary.distinct),
         value.hasHeader ? t('首行作为表头，没有计入；要计入请传 hasHeader:false。') : '',
+        value.totals?.length ? t('合计行没有计入，免得重复相加：{0}。要计入请传 includeTotals:true。', value.totals.map((item) => t('第 {0} 行（{1}）', item.row, item.formula)).join(t('、'))) : '',
       ].filter(Boolean);
       if (value.groups?.length) {
         const agg = value.groupBy?.agg;
         lines.push(t('分组（{0} → {1}，{2}）：', value.groupBy?.column, value.groupBy?.valueColumn, agg));
-        for (const group of value.groups.slice(0, MAX_GROUPS_SHOWN)) lines.push(t('- {0}: {1}（{2} 条）', group.key, group[agg], group.count));
+        for (const group of value.groups.slice(0, MAX_GROUPS_SHOWN)) lines.push(t('- {0}：{1}（{2} 条）', group.key, group[agg], group.count));
         if (value.groups.length > MAX_GROUPS_SHOWN) lines.push(t('…另有 {0} 组未列出。', value.groups.length - MAX_GROUPS_SHOWN));
       }
       if (value.saved) lines.push(t('已另存为：{0}', value.saved));

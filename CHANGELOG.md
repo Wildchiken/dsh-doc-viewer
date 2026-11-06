@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.1
+
+- `doc_viewer_stats` leaves out total rows (`=SUM` / `=SUBTOTAL` over the same column above), so nothing is added twice; `includeTotals: true` counts them.
+- English messages agree with their counts ("1 row", "3 rows").
+- Without LibreOffice, notes say so once and plainly, and a formula with no result yet reads "not calculated yet" instead of "empty".
+- English guide.
+
 ## 1.8.0
 
 - The interface and the agent's tool results follow the Harness language: English or Chinese.
