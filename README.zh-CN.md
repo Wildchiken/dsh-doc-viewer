@@ -4,7 +4,7 @@
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件：你和 Agent 一起直接改你自己的表格。Agent 改了哪些格子，会在你开着的表格里亮出来，所有内容都留在本机。
 
-![Agent 修改开着的表格，改过的格子亮出来](docs/agent-edit.gif)
+![在对话里说一句，Agent 改好开着的表格，改过的格子用蓝框标出](docs/screenshot.png)
 
 ## 功能
 

@@ -4,7 +4,7 @@ English · [简体中文](README.zh-CN.md)
 
 A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin for editing your own spreadsheets in place, together with the agent. The cells it changes light up in the table you have open, and everything stays on your machine.
 
-![The agent edits the open table, and the changed cells light up](docs/agent-edit.gif)
+![Asked in the conversation, the agent edits the open table and the changed cells are outlined](docs/screenshot.png)
 
 The interface is Chinese only for now.
 
