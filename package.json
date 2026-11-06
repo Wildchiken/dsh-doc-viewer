@@ -2,7 +2,7 @@
   "name": "dsh-doc-viewer",
   "version": "1.7.0",
   "type": "module",
-  "description": "文档：侧边栏里的表格/PDF/Word/文本查看、编辑与转换，全部本机处理。",
+  "description": "Edit your own spreadsheets in place, together with the agent. Also reads PDF, Word and text. Local only.",
   "keywords": [
     "dsh-plugin",
     "deepseek-harness",

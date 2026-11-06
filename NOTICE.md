@@ -1,4 +1,4 @@
-# 文档查看器 — third-party notices
+# dsh-doc-viewer: third-party notices
 
 This plugin bundles the following open-source packages. They are used locally;
 no document content leaves the machine.
