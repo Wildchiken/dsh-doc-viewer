@@ -35,7 +35,10 @@ jobs:
       - name: GitHub release with the package attached
         run: |
           cp dist/dsh-doc-viewer-*.tgz dist/dsh-doc-viewer.tgz
-          gh release create "$GITHUB_REF_NAME" dist/*.tgz --title "$GITHUB_REF_NAME" --notes-file CHANGELOG.md
+          # Only this version's section of the changelog.
+          awk -v v="## ${GITHUB_REF_NAME#v}" '$0 == v { on = 1; next } on && /^## / { exit } on' CHANGELOG.md > dist/notes.md
+          test -s dist/notes.md
+          gh release create "$GITHUB_REF_NAME" dist/*.tgz --title "$GITHUB_REF_NAME" --notes-file dist/notes.md
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Publish to npm
