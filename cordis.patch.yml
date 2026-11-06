@@ -1,0 +1,3 @@
+- insert:
+    - id: doc-viewer
+      name: 'dsh-doc-viewer'
