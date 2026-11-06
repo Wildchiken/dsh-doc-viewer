@@ -55,6 +55,13 @@ describe('translation helpers are imported where they are used', () => {
   }
 });
 
+describe('text handed to the Harness', () => {
+  test('is translated when shown, since the page language is set after plugins load', () => {
+    const main = readFileSync(new URL('../src/client/main.jsx', import.meta.url), 'utf8');
+    assert.deepEqual(main.split('\n').filter((line) => /\b(label|title|description|panel): t\(/.test(line)).map((line) => line.trim()), []);
+  });
+});
+
 describe('Host message language', () => {
   test('follows the page for a request, and stays with it for the agent', () => {
     assert.equal(withLang('en-GB', () => t('文件不存在：{0}', 'a.xlsx')), 'File not found: a.xlsx');

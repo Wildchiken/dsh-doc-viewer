@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.2
+
+- The Documents entry in the sidebar follows the Harness language again; in 1.8.0 and 1.8.1 it always read "Documents".
+
 ## 1.8.1
 
 - `doc_viewer_stats` leaves out total rows (`=SUM` / `=SUBTOTAL` over the same column above), so nothing is added twice; `includeTotals: true` counts them.

@@ -23,7 +23,7 @@ Requires DeepSeek Harness 0.2.2 or later.
 
 ```bash
 DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
-"$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/download/v1.8.1/dsh-doc-viewer-1.8.1.tgz
+"$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/download/v1.8.2/dsh-doc-viewer-1.8.2.tgz
 ```
 
 Then restart Harness.

@@ -414,8 +414,11 @@ export function apply(ctx) {
   shell.openBeside = () => openBeside(ctx, load);
   shell.openAsPage = () => ctx.layout.selectPanel(PANEL_ID);
   shell.canOpenBeside = () => Boolean(sidebarRight(ctx)?.openTab) && Boolean(currentSessionId(ctx));
-  const zh = { panel: t('文档') };
+  // Harness's own dictionaries; the page's language is only known once the Harness has started,
+  // so labels below are translated each time they are shown.
+  const zh = { panel: '文档' };
   const en = { panel: 'Documents' };
+  const panelLabel = () => t('文档');
   ctx.effect(() => ctx.locale.register('doc-viewer', { zh, en }), `${PLUGIN_ID}: dictionaries`);
   ctx.effect(() => {
     const tag = document.createElement('style');
@@ -440,7 +443,7 @@ export function apply(ctx) {
     name: 'sidebar.panellist',
     id: PANEL_ID,
     order: 20,
-    label: () => (document.documentElement.lang?.startsWith('zh') ? zh.panel : en.panel),
+    label: panelLabel,
   }, NavIcon));
 
   ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: PANEL_ID }, createPage(load)));
@@ -452,13 +455,12 @@ export function apply(ctx) {
       tabs = ctx.get?.('sidebarRightTabs') ?? ctx.sidebarRightTabs;
     } catch { /* an older Harness */ }
     if (!tabs?.register) return () => {};
-    const label = () => (document.documentElement.lang?.startsWith('zh') ? zh.panel : en.panel);
     return tabs.register({
       id: SIDE_ID,
       kind: SIDE_KIND,
       keepMounted: true,
-      title: label,
-      guide: [{ id: 'documents', order: 40, title: label, description: () => (document.documentElement.lang?.startsWith('zh') ? t('在对话旁查看和编辑表格、PDF、Word') : 'Spreadsheets, PDFs and Word beside the conversation') }],
+      title: panelLabel,
+      guide: [{ id: 'documents', order: 40, title: panelLabel, description: () => t('在对话旁查看和编辑表格、PDF、Word') }],
     });
   }, `${PLUGIN_ID}: sidebar tab type`);
   ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({ name: 'sidebar.right.pane.tab', key: SIDE_ID }, createSideTab(load)));
@@ -490,6 +492,6 @@ export function apply(ctx) {
 
   const OpenAction = createOpenAction(ctx, load);
   for (const name of ['sidebar.right.tab.document.actions', 'sidebar.right.tab.document.unpreviewable']) {
-    ctx.slots.inject(name, () => ctx.slots.register({ name, id: 'doc-viewer-open', order: 60, label: t('在文档中打开') }, OpenAction));
+    ctx.slots.inject(name, () => ctx.slots.register({ name, id: 'doc-viewer-open', order: 60, get label() { return t('在文档中打开'); } }, OpenAction));
   }
 }
