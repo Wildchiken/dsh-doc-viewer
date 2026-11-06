@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from './i18n.js';
 import * as pdfjsLib from 'pdfjs-dist';
 import { fileUrl, open as authorize } from './api.js';
 import { Icon } from './icons.jsx';
@@ -43,7 +44,7 @@ export function PdfTab({ tab, actionsEl, onConvert, onPdfTools, registerCommands
     load()
       .then(async (response) => (response.status === 403 ? authorize(tab.path).then(load) : response))
       .then((response) => {
-        if (!response.ok) throw new Error(`无法读取文件（HTTP ${response.status}）`);
+        if (!response.ok) throw new Error(t('无法读取文件（HTTP {0}）', response.status));
         return response.arrayBuffer();
       })
       .then((data) => {
@@ -71,8 +72,8 @@ export function PdfTab({ tab, actionsEl, onConvert, onPdfTools, registerCommands
       .catch((reason) => {
         if (cancelled) return;
         setError(reason?.name === 'PasswordException' || /password/i.test(String(reason?.message))
-          ? '这个 PDF 已加密。请先解除密码后再打开。'
-          : `无法打开：${reason?.message || String(reason)}`);
+          ? t('这个 PDF 已加密。请先解除密码后再打开。')
+          : t('无法打开：{0}', reason?.message || String(reason)));
       });
     return () => {
       cancelled = true;
@@ -153,21 +154,21 @@ export function PdfTab({ tab, actionsEl, onConvert, onPdfTools, registerCommands
   return (
     <div className="dvd-pdf">
       <TabActions target={actionsEl}>
-        <button type="button" className="dvd-iconbtn" title="查找 ⌘F" aria-label="查找" aria-pressed={findOpen} onClick={() => setFindOpen((open) => !open)}><Icon name="search" /></button>
-        <button type="button" className="dvd-iconbtn" title="缩略图" aria-label="缩略图" aria-pressed={thumbsOpen} onClick={() => setThumbsOpen((open) => !open)}><Icon name="thumbs" /></button>
+        <button type="button" className="dvd-iconbtn" title={t('查找 ⌘F')} aria-label={t('查找')} aria-pressed={findOpen} onClick={() => setFindOpen((open) => !open)}><Icon name="search" /></button>
+        <button type="button" className="dvd-iconbtn" title={t('缩略图')} aria-label={t('缩略图')} aria-pressed={thumbsOpen} onClick={() => setThumbsOpen((open) => !open)}><Icon name="thumbs" /></button>
         <Menu
-          label="PDF 操作"
+          label={t('PDF 操作')}
           items={[
-            { label: '提取文字', icon: 'text', onClick: () => onConvert(tab, 'txt') },
-            { label: '转为 Word', icon: 'word', onClick: () => onConvert(tab, 'docx') },
-            { label: '转为 Excel', icon: 'sheet', onClick: () => onConvert(tab, 'xlsx') },
+            { label: t('提取文字'), icon: 'text', onClick: () => onConvert(tab, 'txt') },
+            { label: t('转为 Word'), icon: 'word', onClick: () => onConvert(tab, 'docx') },
+            { label: t('转为 Excel'), icon: 'sheet', onClick: () => onConvert(tab, 'xlsx') },
             '-',
-            { label: '合并…', icon: 'merge', onClick: () => onPdfTools('merge', tab.path) },
-            { label: '拆分…', icon: 'convert', onClick: () => onPdfTools('split', tab.path) },
-            { label: '删除页面…', icon: 'minus', onClick: () => onPdfTools('delete', tab.path) },
-            { label: '文字识别 (OCR)…', icon: 'eye', onClick: () => onPdfTools('ocr', tab.path) },
+            { label: t('合并…'), icon: 'merge', onClick: () => onPdfTools('merge', tab.path) },
+            { label: t('拆分…'), icon: 'convert', onClick: () => onPdfTools('split', tab.path) },
+            { label: t('删除页面…'), icon: 'minus', onClick: () => onPdfTools('delete', tab.path) },
+            { label: t('文字识别 (OCR)…'), icon: 'eye', onClick: () => onPdfTools('ocr', tab.path) },
             '-',
-            { label: '批量转换…', icon: 'convert', onClick: toolItems[0].onClick },
+            { label: t('批量转换…'), icon: 'convert', onClick: toolItems[0].onClick },
           ]}
         />
       </TabActions>
@@ -184,9 +185,9 @@ export function PdfTab({ tab, actionsEl, onConvert, onPdfTools, registerCommands
         )}
         {error && (
           <div className="dvd-center">
-            <h3>这个 PDF 打不开</h3>
+            <h3>{t('这个 PDF 打不开')}</h3>
             <p>{error}</p>
-            <button type="button" className="dvd-btn" onClick={() => setAttempt((value) => value + 1)}>重试</button>
+            <button type="button" className="dvd-btn" onClick={() => setAttempt((value) => value + 1)}>{t('重试')}</button>
           </div>
         )}
         {!error && !doc && <Skeleton kind="pdf" />}
@@ -210,14 +211,14 @@ export function PdfTab({ tab, actionsEl, onConvert, onPdfTools, registerCommands
               </div>
             </div>
             <div className="dvd-hud">
-              <button type="button" className="dvd-iconbtn" onClick={() => goPage(current - 1)} disabled={current <= 1} aria-label="上一页"><Icon name="chevronLeft" size={15} /></button>
+              <button type="button" className="dvd-iconbtn" onClick={() => goPage(current - 1)} disabled={current <= 1} aria-label={t('上一页')}><Icon name="chevronLeft" size={15} /></button>
               <PageInput current={current} total={doc.numPages} onGo={goPage} />
-              <button type="button" className="dvd-iconbtn" onClick={() => goPage(current + 1)} disabled={current >= doc.numPages} aria-label="下一页"><Icon name="chevronRight" size={15} /></button>
+              <button type="button" className="dvd-iconbtn" onClick={() => goPage(current + 1)} disabled={current >= doc.numPages} aria-label={t('下一页')}><Icon name="chevronRight" size={15} /></button>
               <span className="dvd-hud-sep" />
-              <button type="button" className="dvd-iconbtn" onClick={() => zoomBy(-0.1)} aria-label="缩小"><Icon name="minus" size={15} /></button>
+              <button type="button" className="dvd-iconbtn" onClick={() => zoomBy(-0.1)} aria-label={t('缩小')}><Icon name="minus" size={15} /></button>
               <span className="dvd-hud-text">{Math.round(scale * 100)}%</span>
-              <button type="button" className="dvd-iconbtn" onClick={() => zoomBy(0.1)} aria-label="放大"><Icon name="plus" size={15} /></button>
-              <button type="button" className="dvd-iconbtn" aria-pressed={zoomMode === 'fit'} onClick={() => setZoomMode('fit')} title="适应宽度" aria-label="适应宽度"><Icon name="fit" size={15} /></button>
+              <button type="button" className="dvd-iconbtn" onClick={() => zoomBy(0.1)} aria-label={t('放大')}><Icon name="plus" size={15} /></button>
+              <button type="button" className="dvd-iconbtn" aria-pressed={zoomMode === 'fit'} onClick={() => setZoomMode('fit')} title={t('适应宽度')} aria-label={t('适应宽度')}><Icon name="fit" size={15} /></button>
             </div>
           </>
         )}
@@ -238,7 +239,7 @@ function PageInput({ current, total, onGo }) {
       <input
         className="dvd-pageinput"
         inputMode="numeric"
-        aria-label="页码"
+        aria-label={t('页码')}
         value={draft ?? current}
         onChange={(event) => setDraft(event.target.value.replace(/\D/g, ''))}
         onBlur={commit}
@@ -380,7 +381,7 @@ function PdfThumb({ doc, pageNumber, active, onClick }) {
     };
   }, [doc, pageNumber, visible]);
   return (
-    <button type="button" ref={hostRef} className={`dvd-thumb${active ? ' active' : ''}`} onClick={onClick} aria-label={`第 ${pageNumber} 页`}>
+    <button type="button" ref={hostRef} className={`dvd-thumb${active ? ' active' : ''}`} onClick={onClick} aria-label={t('第 {0} 页', pageNumber)}>
       <canvas ref={canvasRef} />
       {pageNumber}
     </button>
@@ -424,7 +425,7 @@ function PdfFind({ doc, onClose, goPage, onQuery, toast }) {
           if (found.length) goPage(found[0]);
         }
       } catch (error) {
-        if (!cancelled) toast(`查找失败：${error.message}`, true);
+        if (!cancelled) toast(t('查找失败：{0}', error.message), true);
       } finally {
         if (!cancelled) setBusy(false);
       }

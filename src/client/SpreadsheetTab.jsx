@@ -1,10 +1,11 @@
 import React from 'react';
+import { lang, t } from './i18n.js';
 import { Workbook } from '@fortune-sheet/react';
 import { calculate, open as openOnHost, restoreVersion } from './api.js';
 import { Icon } from './icons.jsx';
 import { FindBar, Menu, Segmented, Sheet, TabActions } from './ui.jsx';
 import {
-  AGG_LABELS,
+  aggLabels,
   buildStatsSheet,
   colName,
   computeSheetStats,
@@ -176,7 +177,7 @@ export function SpreadsheetTab({ tab, actionsEl, pageActive, selected, setDirty,
     } catch (error) {
       if (!calculation.current.warned) {
         calculation.current.warned = true;
-        toast(`有些公式没能计算（${error.message}），保存后重新打开会显示正确结果`, true);
+        toast(t('有些公式没能计算（{0}），保存后重新打开会显示正确结果', error.message), true);
       }
     }
   }, [toast]);
@@ -331,8 +332,8 @@ export function SpreadsheetTab({ tab, actionsEl, pageActive, selected, setDirty,
     setAgentChanges((list) => [...list, { id: request.id, at: Date.now(), live: Boolean(request.live), edited, cells, shownBefore, mtime: request.mtime, note: request.note }]);
     markCells(edited);
     toast(request.live
-      ? `Agent 改了 ${edited.length} 个单元格，和你没保存的修改放在一起，保存时一起写入`
-      : `Agent 改了 ${edited.length} 个单元格${request.note ? `，${request.note}` : ''}`, false, { label: '查看', run: () => jumpTo(edited[0]) });
+      ? t('Agent 改了 {0} 个单元格，和你没保存的修改放在一起，保存时一起写入', edited.length)
+      : request.note ? t('Agent 改了 {0} 个单元格，{1}', edited.length, request.note) : t('Agent 改了 {0} 个单元格', edited.length), false, { label: t('查看'), run: () => jumpTo(edited[0]) });
     return true;
   };
 
@@ -421,15 +422,15 @@ export function SpreadsheetTab({ tab, actionsEl, pageActive, selected, setDirty,
         const { mtime } = await restoreVersion(current.path);
         putCells(group.cells.map(({ sheet, r, c, before }) => ({ sheet, r, c, value: before })), false);
         patchTab?.(tab.id, { mtime });
-        toast('已撤销 Agent 的这次修改');
+        toast(t('已撤销 Agent 的这次修改'));
       } catch (error) {
-        toast(`没能撤销：${error.message}`, true);
+        toast(t('没能撤销：{0}', error.message), true);
         return;
       }
     } else if (putCells(group.shownBefore, true)) {
-      toast(group.live ? '已撤销 Agent 的这次修改' : '已在表格里撤销，保存后写入文件');
+      toast(group.live ? t('已撤销 Agent 的这次修改') : t('已在表格里撤销，保存后写入文件'));
     } else {
-      toast('没能撤销这次修改，可以用「恢复到之前的版本」', true);
+      toast(t('没能撤销这次修改，可以用「恢复到之前的版本」'), true);
       return;
     }
     setAgentChanges((list) => list.filter((item) => item !== group));
@@ -440,7 +441,7 @@ export function SpreadsheetTab({ tab, actionsEl, pageActive, selected, setDirty,
     const frozen = api?.getSheet()?.frozen;
     api?.freeze(frozen ? 'cancel' : 'row', { row: 0, column: 0 });
     markDirty();
-    toast(frozen ? '已取消冻结' : '已冻结首行');
+    toast(frozen ? t('已取消冻结') : t('已冻结首行'));
   };
 
   const convertTextNumbers = () => {
@@ -457,19 +458,19 @@ export function SpreadsheetTab({ tab, actionsEl, pageActive, selected, setDirty,
       if (number !== undefined) calls.push({ name: 'setCellValue', args: [r, c, number, { id: sheet.id }] });
     }));
     if (calls.length === 0) {
-      toast(single ? '这个工作表里没有可转换的文本数字' : '选中范围里没有可转换的文本数字');
+      toast(single ? t('这个工作表里没有可转换的文本数字') : t('选中范围里没有可转换的文本数字'));
       return;
     }
     api.batchCallApis(calls);
     markDirty();
-    toast(`已把 ${calls.length} 个文本数字转换为数字`);
+    toast(t('已把 {0} 个文本数字转换为数字', calls.length));
   };
 
   const insertStats = async (result, chartSvg) => {
     const api = workbook.current;
     if (!api) return;
     const sheets = api.getAllSheets();
-    const stats = buildStatsSheet(result, uniqueSheetName(sheets, '统计结果'));
+    const stats = buildStatsSheet(result, uniqueSheetName(sheets, t('统计结果')));
     stats.order = sheets.length;
     if (chartSvg) {
       const src = await svgToPngDataUrl(chartSvg).catch(() => undefined);
@@ -478,16 +479,16 @@ export function SpreadsheetTab({ tab, actionsEl, pageActive, selected, setDirty,
     api.updateSheet([...sheets, stats]);
     markDirty();
     setStatsOpen(false);
-    toast(`已插入工作表“${stats.name}”`);
+    toast(t('已插入工作表“{0}”', stats.name));
   };
 
   const saveStats = async (result) => {
     const api = workbook.current;
     if (!api) return;
     const sheets = api.getAllSheets();
-    const stats = buildStatsSheet(result, uniqueSheetName(sheets, '统计结果'));
+    const stats = buildStatsSheet(result, uniqueSheetName(sheets, t('统计结果')));
     const saved = await saveSheets(tabRef.current, 'xlsx', [...sheetsForSaving(sheets), { ...stats, order: sheets.length }], {
-      suggestedName: `${tabRef.current.name.replace(/\.[^.]+$/, '')}-统计.xlsx`,
+      suggestedName: t('{0}-统计.xlsx', tabRef.current.name.replace(/\.[^.]+$/, '')),
       detached: true,
     });
     if (saved) setStatsOpen(false);
@@ -499,29 +500,29 @@ export function SpreadsheetTab({ tab, actionsEl, pageActive, selected, setDirty,
     <div className="dvd-sheet" ref={sheetEl} data-marks-fading={fading ? '1' : undefined}>
       <TabActions target={actionsEl}>
         {agentChanges.length > 0 && <AgentChanges groups={agentChanges} onJump={jumpTo} onUndo={undoAgentChange} onClear={() => setAgentChanges([])} />}
-        <button type="button" className="dvd-iconbtn" title="查找替换 ⌘F" aria-label="查找替换" aria-pressed={findOpen} onClick={() => setFindOpen((open) => !open)}><Icon name="search" /></button>
-        <button type="button" className="dvd-iconbtn" title="统计" aria-label="统计" onClick={() => setStatsOpen(true)}><Icon name="stats" /></button>
+        <button type="button" className="dvd-iconbtn" title={t('查找替换 ⌘F')} aria-label={t('查找替换')} aria-pressed={findOpen} onClick={() => setFindOpen((open) => !open)}><Icon name="search" /></button>
+        <button type="button" className="dvd-iconbtn" title={t('统计')} aria-label={t('统计')} onClick={() => setStatsOpen(true)}><Icon name="stats" /></button>
         <Menu
-          label="表格操作"
+          label={t('表格操作')}
           items={[
-            { label: hasFrozen ? '取消冻结' : '冻结首行', icon: 'freeze', onClick: freezeFirstRow },
-            { label: '文本转数字', icon: 'number', onClick: convertTextNumbers },
+            { label: hasFrozen ? t('取消冻结') : t('冻结首行'), icon: 'freeze', onClick: freezeFirstRow },
+            { label: t('文本转数字'), icon: 'number', onClick: convertTextNumbers },
             '-',
-            { label: '另存为 Excel…', icon: 'sheet', onClick: () => save('xlsx') },
-            { label: '另存为旧版 Excel (.xls)…', icon: 'sheet', onClick: () => save('xls') },
-            { label: '另存为 CSV…', icon: 'text', onClick: () => save('csv') },
-            { label: '导出 PDF…', icon: 'pdf', onClick: () => save('pdf') },
-            { label: '恢复到之前的版本…', icon: 'undo', onClick: () => onVersions(tabRef.current.path), disabled: tab.transient },
+            { label: t('另存为 Excel…'), icon: 'sheet', onClick: () => save('xlsx') },
+            { label: t('另存为旧版 Excel (.xls)…'), icon: 'sheet', onClick: () => save('xls') },
+            { label: t('另存为 CSV…'), icon: 'text', onClick: () => save('csv') },
+            { label: t('导出 PDF…'), icon: 'pdf', onClick: () => save('pdf') },
+            { label: t('恢复到之前的版本…'), icon: 'undo', onClick: () => onVersions(tabRef.current.path), disabled: tab.transient },
             '-',
             ...toolItems,
           ]}
         />
-        <button type="button" className={`dvd-btn${tab.dirty ? ' primary' : ''}`} style={{ margin: '0 4px' }} title={tab.transient ? '这是拖进来的文件，保存时选择存放位置 ⌘S' : '存回原文件，修改前的版本会自动保留 ⌘S'} onClick={() => save()}>保存</button>
+        <button type="button" className={`dvd-btn${tab.dirty ? ' primary' : ''}`} style={{ margin: '0 4px' }} title={tab.transient ? t('这是拖进来的文件，保存时选择存放位置 ⌘S') : t('存回原文件，修改前的版本会自动保留 ⌘S')} onClick={() => save()}>{t('保存')}</button>
       </TabActions>
       <Workbook
         ref={workbook}
         data={initialSheets}
-        lang="zh"
+        lang={lang()}
         allowEdit
         showToolbar
         showFormulaBar
@@ -571,29 +572,29 @@ function AgentChanges({ groups, onJump, onUndo, onClear }) {
   const total = groups.reduce((sum, group) => sum + group.edited.length, 0);
   return (
     <span className="dvd-menuwrap" ref={wrap}>
-      <button type="button" className="dvd-btn plain dvd-changes-chip" title={`Agent 改了 ${total} 处`} aria-label={`Agent 改了 ${total} 处`} aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-        <Icon name="sparkle" size={14} /><span className="dvd-wide">Agent 改了 </span><span className="dvd-count" key={total}>{total}</span><span className="dvd-wide"> 处</span>
+      <button type="button" className="dvd-btn plain dvd-changes-chip" title={t('Agent 改了 {0} 处', total)} aria-label={t('Agent 改了 {0} 处', total)} aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+        <Icon name="sparkle" size={14} /><span className="dvd-wide">{t('Agent 改了')} </span><span className="dvd-count" key={total}>{total}</span><span className="dvd-wide"> {t('处')}</span>
       </button>
       {open && (
-        <div className="dvd-menu dvd-changes" role="dialog" aria-label="Agent 的修改">
+        <div className="dvd-menu dvd-changes" role="dialog" aria-label={t('Agent 的修改')}>
           {groups.slice().reverse().map((group) => (
             <div className="dvd-change" key={group.id}>
               <div className="dvd-change-head">
                 <span>{new Date(group.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                <span className="dvd-change-tag">{group.live ? '在你未保存的修改里' : '已写入文件'}</span>
-                <button type="button" className="dvd-change-undo" onClick={() => onUndo(group)}>撤销</button>
+                <span className="dvd-change-tag">{group.live ? t('在你未保存的修改里') : t('已写入文件')}</span>
+                <button type="button" className="dvd-change-undo" onClick={() => onUndo(group)}>{t('撤销')}</button>
               </div>
               <div className="dvd-change-cells">
                 {group.edited.slice(0, 24).map((cell) => (
                   <button type="button" key={`${cell.sheet}!${cell.address}`} className="dvd-change-cell" title={`${cell.sheet}!${cell.address}`} onClick={() => onJump(cell)}>{cell.address}</button>
                 ))}
-                {group.edited.length > 24 && <span className="dvd-change-more">另有 {group.edited.length - 24} 处</span>}
+                {group.edited.length > 24 && <span className="dvd-change-more">{t('另有 {0} 处', group.edited.length - 24)}</span>}
               </div>
               {group.note && <div className="dvd-change-note">{group.note}</div>}
             </div>
           ))}
           <div className="dvd-sep" role="separator" />
-          <button type="button" onClick={() => { setOpen(false); onClear(); }}>清空这个列表</button>
+          <button type="button" onClick={() => { setOpen(false); onClear(); }}>{t('清空这个列表')}</button>
         </div>
       )}
     </span>
@@ -667,26 +668,26 @@ function SheetFind({ workbook, onClose, onChanged, toast }) {
       calls.push({ name: 'setCellValue', args: [match.r, match.c, before.replace(pattern, () => replacement), { id: match.sheetId }] });
     }
     if (calls.length === 0) {
-      toast('没有可替换的内容（公式单元格不会被替换）');
+      toast(t('没有可替换的内容（公式单元格不会被替换）'));
       return;
     }
     api.batchCallApis(calls);
     onChanged();
-    toast(`已替换 ${calls.length} 个单元格`);
+    toast(t('已替换 {0} 个单元格', calls.length));
     setMatches(collect(query));
     setIndex(0);
   };
 
   return (
-    <FindBar query={query} onQuery={setQuery} count={matches.length} index={index} onNext={() => move(1)} onPrev={() => move(-1)} onClose={onClose} placeholder="在所有工作表中查找">
+    <FindBar query={query} onQuery={setQuery} count={matches.length} index={index} onNext={() => move(1)} onPrev={() => move(-1)} onClose={onClose} placeholder={t('在所有工作表中查找')}>
       {replacing ? (
         <div className="dvd-find-row" style={{ gap: 6 }}>
-          <input className="dvd-input" value={replacement} placeholder="替换为" aria-label="替换为" onChange={(event) => setReplacement(event.target.value)} />
-          <button type="button" className="dvd-btn" disabled={matches.length === 0} onClick={replaceAll}>全部替换</button>
+          <input className="dvd-input" value={replacement} placeholder={t('替换为')} aria-label={t('替换为')} onChange={(event) => setReplacement(event.target.value)} />
+          <button type="button" className="dvd-btn" disabled={matches.length === 0} onClick={replaceAll}>{t('全部替换')}</button>
         </div>
       ) : (
         <div className="dvd-find-row">
-          <button type="button" className="dvd-btn plain" style={{ height: 24, padding: '0 8px' }} onClick={() => setReplacing(true)}>替换…</button>
+          <button type="button" className="dvd-btn plain" style={{ height: 24, padding: '0 8px' }} onClick={() => setReplacing(true)}>{t('替换…')}</button>
         </div>
       )}
     </FindBar>
@@ -741,7 +742,7 @@ function statsScope(api) {
     cells,
     firstRow: rows[0],
     firstColumn: columns[0],
-    label: `${sheet.name}，${isRange ? `${colName(columns[0])}${rows[0] + 1}:${colName(columns[1])}${rows[1] + 1}` : '全部数据'}`,
+    label: t('{0}，{1}', sheet.name, isRange ? `${colName(columns[0])}${rows[0] + 1}:${colName(columns[1])}${rows[1] + 1}` : t('全部数据')),
   };
 }
 
@@ -770,68 +771,68 @@ function StatsSheet({ workbook, onClose, onInsert, onSave }) {
     };
   }, [agg, columns, groupIndex, hasHeader, scope, valueIndex]);
 
-  const chartTitle = result && `${result.groupName} · ${result.valueName}${AGG_LABELS[agg]}`;
+  const chartTitle = result && `${result.groupName} · ${result.valueName}${aggLabels()[agg]}`;
   const chartSvg = React.useMemo(() => (result?.groups.length ? renderChartSvg(result.groups, chartTitle, chartType) : ''), [chartTitle, chartType, result]);
 
   if (!scope) {
     return (
-      <Sheet title="统计" onClose={onClose} footer={<button type="button" className="dvd-btn" onClick={onClose}>好</button>}>
-        <p>这个工作表还没有数据。</p>
+      <Sheet title={t('统计')} onClose={onClose} footer={<button type="button" className="dvd-btn" onClick={onClose}>{t('好')}</button>}>
+        <p>{t('这个工作表还没有数据。')}</p>
       </Sheet>
     );
   }
   const { summary, groups } = result;
   return (
     <Sheet
-      title="统计"
+      title={t('统计')}
       wide
       onClose={onClose}
       footer={(
         <>
-          <button type="button" className="dvd-btn" onClick={() => onSave(result)}>另存为…</button>
-          <button type="button" className="dvd-btn primary" onClick={() => onInsert(result, chartSvg)}>插入工作表</button>
+          <button type="button" className="dvd-btn" onClick={() => onSave(result)}>{t('另存为…')}</button>
+          <button type="button" className="dvd-btn primary" onClick={() => onInsert(result, chartSvg)}>{t('插入工作表')}</button>
         </>
       )}
     >
       <div className="dvd-crumb" style={{ justifyContent: 'space-between', gap: 12 }}>
         <span className="dvd-label">{scope.label}</span>
-        <label className="dvd-check"><input type="checkbox" checked={hasHeader} onChange={(event) => setHasHeader(event.target.checked)} />首行是表头</label>
+        <label className="dvd-check"><input type="checkbox" checked={hasHeader} onChange={(event) => setHasHeader(event.target.checked)} />{t('首行是表头')}</label>
       </div>
       <div className="dvd-fieldrow">
         <label className="dvd-field">
-          <span className="dvd-label">分组</span>
+          <span className="dvd-label">{t('分组')}</span>
           <select className="dvd-select" value={groupIndex} onChange={(event) => setGroupIndex(Number(event.target.value))}>
-            <option value={-1}>不分组</option>
+            <option value={-1}>{t('不分组')}</option>
             {columns.map((column) => <option key={column.index} value={column.index}>{column.name}</option>)}
           </select>
         </label>
         <label className="dvd-field">
-          <span className="dvd-label">数值</span>
+          <span className="dvd-label">{t('数值')}</span>
           <select className="dvd-select" value={valueIndex} onChange={(event) => setValueIndex(Number(event.target.value))}>
-            <option value={-1}>全部列</option>
+            <option value={-1}>{t('全部列')}</option>
             {columns.map((column) => <option key={column.index} value={column.index}>{column.name}</option>)}
           </select>
         </label>
         <label className="dvd-field">
-          <span className="dvd-label">汇总方式</span>
+          <span className="dvd-label">{t('汇总方式')}</span>
           <select className="dvd-select" value={agg} onChange={(event) => setAgg(event.target.value)}>
-            {Object.entries(AGG_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            {Object.entries(aggLabels()).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
       </div>
       <div className="dvd-tiles">
-        {[['合计', summary.sum], ['平均', summary.average], ['计数', summary.count], ['最大', summary.max], ['最小', summary.min], ['去重', summary.distinct]].map(([label, value]) => (
+        {[[t('合计'), summary.sum], [t('平均'), summary.average], [t('计数'), summary.count], [t('最大'), summary.max], [t('最小'), summary.min], [t('去重'), summary.distinct]].map(([label, value]) => (
           <div className="dvd-tile" key={label}><span>{label}</span><strong title={String(value ?? '')}>{formatNumber(value)}</strong></div>
         ))}
       </div>
       {groups.length > 0 ? (
         <>
-          <Segmented value={chartType} onChange={setChartType} options={[{ value: 'bar', label: '柱状图' }, { value: 'line', label: '折线图' }]} />
+          <Segmented value={chartType} onChange={setChartType} options={[{ value: 'bar', label: t('柱状图') }, { value: 'line', label: t('折线图') }]} />
           {/* The markup is built by renderChartSvg, which escapes every value from the sheet. */}
           <div className="dvd-chart" dangerouslySetInnerHTML={{ __html: chartSvg }} />
         </>
       ) : (
-        <div className="dvd-callout">选择“分组”和“数值”两列，可按类别汇总并生成图表。</div>
+        <div className="dvd-callout">{t('选择“分组”和“数值”两列，可按类别汇总并生成图表。')}</div>
       )}
     </Sheet>
   );

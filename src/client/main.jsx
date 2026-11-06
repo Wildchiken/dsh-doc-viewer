@@ -8,6 +8,7 @@
  * where that element sits and whether it is visible; switching away hides it.
  */
 import React from 'react';
+import { t, useLang } from './i18n.js';
 import { createPortal } from 'react-dom';
 import { ack, recoveryList, requests } from './api.js';
 import { rememberRecent } from './recent.js';
@@ -147,6 +148,7 @@ function createPage(load) {
  * @param {{ placement: string, visible: boolean, load: () => void, onShown?: () => void }} props
  */
 function ViewerAnchor({ placement: mine, visible, load, onShown }) {
+  useLang();
   const { placement } = useShell();
   const anchor = React.useRef(null);
   const [claimed, setClaimed] = React.useState(0);
@@ -164,8 +166,8 @@ function ViewerAnchor({ placement: mine, visible, load, onShown }) {
     <div ref={anchor} style={{ position: 'relative', display: 'flex', width: '100%', height: '100%', minWidth: 0, minHeight: 0 }}>
       {elsewhere && (
         <div style={{ margin: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--dsw-alias-label-secondary)' }}>
-          <span>文档正显示在另一处</span>
-          <button type="button" onClick={() => setClaimed((value) => value + 1)} style={{ height: 30, padding: '0 12px', border: 0, borderRadius: 'var(--dsw-radius-sm)', background: 'var(--dsw-alias-interactive-bg-hover)', color: 'var(--dsw-alias-label-primary)', font: 'inherit', cursor: 'pointer' }}>在这里显示</button>
+          <span>{t('文档正显示在另一处')}</span>
+          <button type="button" onClick={() => setClaimed((value) => value + 1)} style={{ height: 30, padding: '0 12px', border: 0, borderRadius: 'var(--dsw-radius-sm)', background: 'var(--dsw-alias-interactive-bg-hover)', color: 'var(--dsw-alias-label-primary)', font: 'inherit', cursor: 'pointer' }}>{t('在这里显示')}</button>
         </div>
       )}
     </div>
@@ -251,10 +253,11 @@ function openBeside(ctx, load) {
 
 /** Lives for the whole session in a slot that is never unmounted. */
 function PersistentViewer() {
+  useLang();
   const { Viewer, active, loadError, placement } = useShell();
   if (loadError && !Viewer) {
     return createPortal(
-      <div style={{ padding: 32, fontSize: 13, color: 'var(--dsw-alias-label-secondary)' }}>文档查看器加载失败：{loadError}</div>,
+      <div style={{ padding: 32, fontSize: 13, color: 'var(--dsw-alias-label-secondary)' }}>{t('文档查看器加载失败：')}{loadError}</div>,
       shell.host,
     );
   }
@@ -338,8 +341,8 @@ function createOpenAction(ctx, load) {
     return (
       <button
         type="button"
-        title="在文档中打开"
-        aria-label="在文档中打开"
+        title={t('在文档中打开')}
+        aria-label={t('在文档中打开')}
         onClick={() => openFile(ctx, load, path)}
         style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, padding: 0, border: 'none', borderRadius: 'var(--dsw-radius-sm)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', cursor: 'pointer' }}
       >
@@ -411,7 +414,7 @@ export function apply(ctx) {
   shell.openBeside = () => openBeside(ctx, load);
   shell.openAsPage = () => ctx.layout.selectPanel(PANEL_ID);
   shell.canOpenBeside = () => Boolean(sidebarRight(ctx)?.openTab) && Boolean(currentSessionId(ctx));
-  const zh = { panel: '文档' };
+  const zh = { panel: t('文档') };
   const en = { panel: 'Documents' };
   ctx.effect(() => ctx.locale.register('doc-viewer', { zh, en }), `${PLUGIN_ID}: dictionaries`);
   ctx.effect(() => {
@@ -455,7 +458,7 @@ export function apply(ctx) {
       kind: SIDE_KIND,
       keepMounted: true,
       title: label,
-      guide: [{ id: 'documents', order: 40, title: label, description: () => (document.documentElement.lang?.startsWith('zh') ? '在对话旁查看和编辑表格、PDF、Word' : 'Spreadsheets, PDFs and Word beside the conversation') }],
+      guide: [{ id: 'documents', order: 40, title: label, description: () => (document.documentElement.lang?.startsWith('zh') ? t('在对话旁查看和编辑表格、PDF、Word') : 'Spreadsheets, PDFs and Word beside the conversation') }],
     });
   }, `${PLUGIN_ID}: sidebar tab type`);
   ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({ name: 'sidebar.right.pane.tab', key: SIDE_ID }, createSideTab(load)));
@@ -467,8 +470,8 @@ export function apply(ctx) {
       previews = ctx.get?.('documentPreviews') ?? ctx.documentPreviews;
     } catch { /* an older Harness */ }
     if (!previews?.register) return () => {};
-    const editable = previews.register({ id: EDITOR_ID, extensions: EDITABLE, binaryExtensions: EDITABLE.filter((ext) => BINARY.includes(ext)), priority: 'extension', title: () => '文档（可编辑）', loading: 'renderer', wrap: false });
-    const readable = previews.register({ id: READER_ID, extensions: READABLE, binaryExtensions: READABLE.filter((ext) => BINARY.includes(ext)), priority: 'fallback', title: () => '文档插件', loading: 'renderer', wrap: false });
+    const editable = previews.register({ id: EDITOR_ID, extensions: EDITABLE, binaryExtensions: EDITABLE.filter((ext) => BINARY.includes(ext)), priority: 'extension', title: () => t('文档（可编辑）'), loading: 'renderer', wrap: false });
+    const readable = previews.register({ id: READER_ID, extensions: READABLE, binaryExtensions: READABLE.filter((ext) => BINARY.includes(ext)), priority: 'fallback', title: () => t('文档插件'), loading: 'renderer', wrap: false });
     return () => {
       editable?.();
       readable?.();
@@ -487,6 +490,6 @@ export function apply(ctx) {
 
   const OpenAction = createOpenAction(ctx, load);
   for (const name of ['sidebar.right.tab.document.actions', 'sidebar.right.tab.document.unpreviewable']) {
-    ctx.slots.inject(name, () => ctx.slots.register({ name, id: 'doc-viewer-open', order: 60, label: '在文档中打开' }, OpenAction));
+    ctx.slots.inject(name, () => ctx.slots.register({ name, id: 'doc-viewer-open', order: 60, label: t('在文档中打开') }, OpenAction));
   }
 }

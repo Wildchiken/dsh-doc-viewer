@@ -3,6 +3,7 @@
  * the session; `active` says whether the page is the one on screen.
  */
 import React from 'react';
+import { t, useLang } from './i18n.js';
 import fortuneCss from '@fortune-sheet/react/dist/index.css';
 import { CSS } from './styles.js';
 import { Icon, iconForKind } from './icons.jsx';
@@ -44,9 +45,9 @@ function ensureStyles() {
 
 /** @param {any} error */
 function friendly(error) {
-  if (error?.code === 'office-engine-unavailable') return '本机没有找到 Office 转换引擎（Harness 自带的 LibreOffice）。';
-  if (error instanceof TypeError && /fetch/i.test(error.message)) return '和 Harness 的连接断开了，稍后再试。';
-  return error?.message || '操作失败，请重试。';
+  if (error?.code === 'office-engine-unavailable') return t('本机没有找到 Office 转换引擎（Harness 自带的 LibreOffice）。');
+  if (error instanceof TypeError && /fetch/i.test(error.message)) return t('和 Harness 的连接断开了，稍后再试。');
+  return error?.message || t('操作失败，请重试。');
 }
 
 /** @param {string} path */
@@ -78,6 +79,8 @@ function rangeLabel(sheet, selection) {
 
 export function Viewer({ active, shell, placement }) {
   ensureStyles();
+  // Everything below re-renders in the new language when Harness switches.
+  useLang();
   React.useState(() => api.configure({ root: () => shell.workspaceRoot?.() }));
   const [tabs, setTabs] = React.useState([]);
   const [activeId, setActiveId] = React.useState(null);
@@ -127,21 +130,23 @@ export function Viewer({ active, shell, placement }) {
   const askAgent = React.useCallback((prompt) => {
     if (shell.askAgent?.(prompt)) return;
     navigator.clipboard?.writeText(prompt).then(
-      () => showToast('没能自动填进对话框，已复制，粘贴给 Agent 即可'),
-      () => showToast('没能打开对话，请切到会话里描述问题', true),
+      () => showToast(t('没能自动填进对话框，已复制，粘贴给 Agent 即可')),
+      () => showToast(t('没能打开对话，请切到会话里描述问题'), true),
     );
   }, [shell, showToast]);
 
   /** An error, with a way to ask the agent about it. */
   const showError = React.useCallback((message, context) => {
-    showToast(message, true, { label: '问 Agent', run: () => askAgent(`文档页出了问题：${message}${context ? `\n文件：${context}` : ''}\n请帮我看看原因，能处理的话直接处理。`) });
+    showToast(message, true, { label: t('问 Agent'), run: () => askAgent(context
+      ? t('文档页出了问题：{0}\n文件：{1}\n请帮我看看原因，能处理的话直接处理。', message, context)
+      : t('文档页出了问题：{0}\n请帮我看看原因，能处理的话直接处理。', message)) });
   }, [askAgent, showToast]);
 
   /** Where a new file went, and ways to get to it. */
   const announceFile = React.useCallback((output, message) => {
-    showToast(message || `已保存到“${folderName(output)}”文件夹：${baseName(output)}`, false, [
-      { label: '打开', run: () => openPath(output) },
-      { label: '在访达中显示', run: () => api.reveal(output).catch((error) => showToast(friendly(error), true)) },
+    showToast(message || t('已保存到“{0}”文件夹：{1}', folderName(output), baseName(output)), false, [
+      { label: t('打开'), run: () => openPath(output) },
+      { label: t('在访达中显示'), run: () => api.reveal(output).catch((error) => showToast(friendly(error), true)) },
     ]);
   // openPath is declared below; the reference is resolved when a toast button is pressed.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -179,7 +184,7 @@ export function Viewer({ active, shell, placement }) {
     const replacing = previous && (!previous.dirty || options.fresh) ? previous : undefined;
     tabCounter += 1;
     const id = `tab-${tabCounter}`;
-    const name = baseName(path) || '文档';
+    const name = baseName(path) || t('文档');
     const placeholder = { id, path, name, kind: 'loading', loading: true };
     setTabs((list) => (replacing ? list.map((tab) => (tab.id === replacing.id ? placeholder : tab)) : [...list, placeholder]));
     if (replacing) commands.current.delete(replacing.id);
@@ -204,18 +209,18 @@ export function Viewer({ active, shell, placement }) {
           : tab)));
         if (!doc.transient) remember(path, doc.name || name, doc.kind);
         if (recovered) {
-          showToast(`已恢复「${doc.name || name}」上次没有保存的修改（${new Date(recovered.at).toLocaleString()}）`, false, [
-            { label: '放弃这些修改', run: () => discardEdits(path) },
+          showToast(t('已恢复「{0}」上次没有保存的修改（{1}）', doc.name || name, new Date(recovered.at).toLocaleString()), false, [
+            { label: t('放弃这些修改'), run: () => discardEdits(path) },
           ]);
         }
         if (options.agent) {
           const count = options.highlight?.length || 0;
-          const what = [count ? `改了 ${count} 个单元格` : '', options.note || ''].filter(Boolean).join('，') || '修改了文件';
+          const what = [count ? t('改了 {0} 个单元格', count) : '', options.note || ''].filter(Boolean).join(t('，')) || t('修改了文件');
           showToast(options.inPlace
             ? `Agent ${what}`
-            : `Agent ${what}，另存为 ${name}${previous?.dirty ? '（原文件有你未保存的修改，所以没有覆盖它）' : ''}`, false, options.inPlace
-            ? [{ label: '撤销', run: () => undoLastSave(path) }]
-            : [{ label: '看原文件', run: () => openPath(options.replaces) }, { label: '在访达中显示', run: () => revealFile(path) }]);
+            : t('Agent {0}，另存为 {1}{2}', what, name, previous?.dirty ? t('（原文件有你未保存的修改，所以没有覆盖它）') : ''), false, options.inPlace
+            ? [{ label: t('撤销'), run: () => undoLastSave(path) }]
+            : [{ label: t('看原文件'), run: () => openPath(options.replaces) }, { label: t('在访达中显示'), run: () => revealFile(path) }]);
         } else if (options.message) {
           showToast(options.message);
         }
@@ -235,7 +240,7 @@ export function Viewer({ active, shell, placement }) {
               sheets: recovered.sheets, dirty: true, transient: true,
             }]);
             setActiveId(id);
-            showToast(`原文件已经不在了，已恢复「${recovered.name || name}」没保存的内容，保存时请选个位置`);
+            showToast(t('原文件已经不在了，已恢复「{0}」没保存的内容，保存时请选个位置', recovered.name || name));
             return id;
           }
         }
@@ -275,7 +280,7 @@ export function Viewer({ active, shell, placement }) {
         if (options.replaces) options.agent = true;
         if (announce) {
           remember(path, baseName(path));
-          announceFile(path, `Agent 生成了 ${baseName(path)}，在“${folderName(path)}”文件夹`);
+          announceFile(path, t('Agent 生成了 {0}，在“{1}”文件夹', baseName(path), folderName(path)));
         } else {
           openPath(path, options);
         }
@@ -316,8 +321,8 @@ export function Viewer({ active, shell, placement }) {
       return;
     }
     // Nothing here could take it piece by piece: show the file as it now is, if that loses nothing.
-    if (!tab.dirty) openPath(request.path, { replaces: request.path, background: !request.reveal, message: `Agent 修改了「${tab.name}」` });
-    else showToast(`Agent 的改动没能放进「${tab.name}」，请保存后重新打开`, true);
+    if (!tab.dirty) openPath(request.path, { replaces: request.path, background: !request.reveal, message: t('Agent 修改了「{0}」', tab.name) });
+    else showToast(t('Agent 的改动没能放进「{0}」，请保存后重新打开', tab.name), true);
   }, [openPath, remember, showToast]);
 
   const setDirty = React.useCallback((tabId, dirty = true) => {
@@ -337,7 +342,7 @@ export function Viewer({ active, shell, placement }) {
   /** Throw away restored edits and show the file as it is. */
   const discardEdits = React.useCallback(async (path) => {
     await api.discardRecovery(path);
-    await openPath(path, { replaces: path, fresh: true, message: '已放弃没保存的修改' });
+    await openPath(path, { replaces: path, fresh: true, message: t('已放弃没保存的修改') });
   }, [openPath]);
 
   const revealFile = React.useCallback((path) => {
@@ -364,7 +369,7 @@ export function Viewer({ active, shell, placement }) {
     try {
       const { version } = await api.restoreVersion(path);
       await openPath(path, { replaces: path });
-      showToast('已撤销这次修改', false, version.remaining > 0 ? { label: '继续撤销', run: () => undo(path) } : undefined);
+      showToast(t('已撤销这次修改'), false, version.remaining > 0 ? { label: t('继续撤销'), run: () => undo(path) } : undefined);
     } catch (error) {
       showError(friendly(error), path);
     }
@@ -379,15 +384,15 @@ export function Viewer({ active, shell, placement }) {
     try {
       const result = await track(() => api.saveText({ path: tab.path, text, openedMtime: force ? undefined : (tab.acceptedMtime ?? tab.mtime) }));
       if (result.conflict) {
-        showToast(`「${tab.name}」在别处被修改过，这次没有保存`, true, [
-          { label: '用我的覆盖', run: () => save(tab, text, { force: true, onSaved }) },
-          { label: '载入新内容', run: () => discardEdits(tab.path) },
+        showToast(t('「{0}」在别处被修改过，这次没有保存', tab.name), true, [
+          { label: t('用我的覆盖'), run: () => save(tab, text, { force: true, onSaved }) },
+          { label: t('载入新内容'), run: () => discardEdits(tab.path) },
         ]);
         return undefined;
       }
       setTabs((list) => list.map((item) => (item.id === tab.id ? { ...item, dirty: false, mtime: result.mtime, acceptedMtime: undefined } : item)));
       onSaved?.();
-      showToast(result.warnings?.length ? `已保存。${result.warnings[0].message}` : '已保存', false, { label: '撤销保存', run: () => undoLastSave(tab.path) });
+      showToast(result.warnings?.length ? t('已保存。{0}', result.warnings[0].message) : t('已保存'), false, { label: t('撤销保存'), run: () => undoLastSave(tab.path) });
       return result;
     } catch (error) {
       showError(friendly(error), tab.path);
@@ -408,10 +413,10 @@ export function Viewer({ active, shell, placement }) {
         return;
       }
       const result = response.results?.[0];
-      if (!result?.ok) throw new Error(result?.message || '转换失败');
+      if (!result?.ok) throw new Error(result?.message || t('转换失败'));
       remember(result.output, baseName(result.output));
       const warning = result.warnings?.find((item) => item.code !== 'lossy');
-      announceFile(result.output, `${target === 'pdf' ? '已导出' : '已另存为'} ${baseName(result.output)}${warning ? `。${warning.message}` : ''}`);
+      announceFile(result.output, (target === 'pdf' ? t('已导出 {0}', baseName(result.output)) : t('已另存为 {0}', baseName(result.output))) + (warning ? t('。{0}', warning.message) : ''));
     } catch (error) {
       showError(friendly(error), tab.path);
     }
@@ -436,7 +441,7 @@ export function Viewer({ active, shell, placement }) {
           }));
         }
         setTabs((list) => list.map((item) => (item.id === tab.id ? { ...item, dirty: false, mtime: result.mtime } : item)));
-        showToast(result.warnings?.length ? `已保存。${result.warnings[0].message}` : '已保存', false, { label: '撤销保存', run: () => undoLastSave(tab.path) });
+        showToast(result.warnings?.length ? t('已保存。{0}', result.warnings[0].message) : t('已保存'), false, { label: t('撤销保存'), run: () => undoLastSave(tab.path) });
         return { ...result, rebased: true };
       }
       const target = format || 'xlsx';
@@ -456,7 +461,7 @@ export function Viewer({ active, shell, placement }) {
       const warning = result.warnings?.[0]?.message;
       remember(result.output, fileName, target === 'pdf' ? 'pdf' : 'spreadsheet');
       if (target === 'pdf' || options.detached) {
-        announceFile(result.output, `${target === 'pdf' ? '已导出' : '已另存为'} ${fileName}${warning ? `。${warning}` : ''}`);
+        announceFile(result.output, (target === 'pdf' ? t('已导出 {0}', fileName) : t('已另存为 {0}', fileName)) + (warning ? t('。{0}', warning) : ''));
         return result;
       }
       // Like Save As anywhere else: this tab is now the new file, and nothing of the old one is pending.
@@ -464,7 +469,7 @@ export function Viewer({ active, shell, placement }) {
       setTabs((list) => list.map((item) => (item.id === tab.id
         ? { ...item, path: result.output, name: fileName, ext: `.${target}`, dirty: false, mtime: result.mtime, transient: false }
         : item)));
-      announceFile(result.output, `已另存为 ${fileName}${warning ? `。${warning}` : ''}`);
+      announceFile(result.output, t('已另存为 {0}', fileName) + (warning ? t('。{0}', warning) : ''));
       return { ...result, rebased: true };
     } catch (error) {
       showError(friendly(error), tab.path);
@@ -475,12 +480,12 @@ export function Viewer({ active, shell, placement }) {
   /** A new, empty workbook, named and placed in the save panel, then opened. */
   const newSpreadsheet = React.useCallback(async () => {
     try {
-      const { path } = await api.pickSave({ name: '未命名表格.xlsx', message: '新建表格', fresh: true });
+      const { path } = await api.pickSave({ name: t('未命名表格.xlsx'), message: t('新建表格'), fresh: true });
       if (!path) return;
       const { output } = await track(() => api.create(path));
-      await openPath(output, { message: `已新建「${baseName(output)}」` });
+      await openPath(output, { message: t('已新建「{0}」', baseName(output)) });
     } catch (error) {
-      if (error?.code === 'native-unavailable') showToast('这个系统上没有保存面板，可以在对话里让 Agent 新建表格', true);
+      if (error?.code === 'native-unavailable') showToast(t('这个系统上没有保存面板，可以在对话里让 Agent 新建表格'), true);
       else showError(friendly(error));
     }
   }, [openPath, showError, showToast, track]);
@@ -571,13 +576,13 @@ export function Viewer({ active, shell, placement }) {
         if (entry.handled || Date.now() - entry.since < STAT_GRACE_MS) continue;
         entry.handled = true;
         if (now === null) {
-          showToast(`「${tab.name}」已被删除或移走，这里显示的是之前的内容`, true);
+          showToast(t('「{0}」已被删除或移走，这里显示的是之前的内容', tab.name), true);
         } else if (!tab.dirty) {
-          openPath(tab.path, { replaces: tab.path, background: true, message: `「${tab.name}」在别处被修改，已显示最新内容` });
+          openPath(tab.path, { replaces: tab.path, background: true, message: t('「{0}」在别处被修改，已显示最新内容', tab.name) });
         } else {
-          showToast(`「${tab.name}」在别处被修改了，而你这里有没保存的修改`, true, [
-            { label: '载入新内容', run: () => discardEdits(tab.path) },
-            { label: '保留我的', run: () => patchTab(tab.id, { acceptedMtime: now }) },
+          showToast(t('「{0}」在别处被修改了，而你这里有没保存的修改', tab.name), true, [
+            { label: t('载入新内容'), run: () => discardEdits(tab.path) },
+            { label: t('保留我的'), run: () => patchTab(tab.id, { acceptedMtime: now }) },
           ]);
         }
       }
@@ -668,20 +673,20 @@ export function Viewer({ active, shell, placement }) {
   const askAboutActive = () => {
     const tab = tabsRef.current.find((item) => item.id === activeIdRef.current);
     if (!tab) {
-      askAgent('关于“文档”页：');
+      askAgent(t('关于“文档”页：'));
       return;
     }
     const detail = commands.current.get(tab.id)?.describe?.() || {};
-    const where = detail.sheet ? `，${rangeLabel(detail.sheet, detail.selection)}` : detail.page ? `，第 ${detail.page} 页` : '';
-    askAgent(`关于「${tab.name}」${where}：`);
+    const where = detail.sheet ? `，${rangeLabel(detail.sheet, detail.selection)}` : detail.page ? t('，第 {0} 页', detail.page) : '';
+    askAgent(t('关于「{0}」{1}：', tab.name, where));
   };
   const closeDialog = React.useCallback(() => setDialog(null), []);
   const pdfTools = React.useCallback((action, path) => setDialog({ type: 'pdf', action, path }), []);
   const activeTab = tabs.find((tab) => tab.id === activeId);
   // Workspace-wide tools, offered at the end of every document's menu.
   const toolItems = React.useMemo(() => [
-    { label: '批量转换…', icon: 'convert', onClick: () => setDialog({ type: 'convert' }) },
-    { label: 'PDF 工具…', icon: 'pdf', onClick: () => setDialog({ type: 'pdf', action: 'merge' }) },
+    { label: t('批量转换…'), icon: 'convert', onClick: () => setDialog({ type: 'convert' }) },
+    { label: t('PDF 工具…'), icon: 'pdf', onClick: () => setDialog({ type: 'pdf', action: 'merge' }) },
   ], []);
 
   return (
@@ -707,7 +712,7 @@ export function Viewer({ active, shell, placement }) {
       }}
     >
       <div className="dvd-bar" data-window-drag="true">
-        <div className="dvd-tabs" role="tablist" aria-label="打开的文档">
+        <div className="dvd-tabs" role="tablist" aria-label={t('打开的文档')}>
           {withClosing(tabs, closing).map((tab) => tab.closing ? (
             <div key={tab.id} className="dvd-tab closing" aria-hidden="true">
               <Icon name={iconForKind(tab.kind)} size={14} />
@@ -730,22 +735,22 @@ export function Viewer({ active, shell, placement }) {
               <button
                 type="button"
                 className="dvd-tab-close"
-                aria-label={`关闭 ${tab.name}`}
+                aria-label={t('关闭 {0}', tab.name)}
                 onClick={(event) => { event.stopPropagation(); closeTab(tab); }}
               >
                 <Icon name="close" size={11} strokeWidth={2} />
               </button>
-              {tab.dirty && tab.id !== activeId && <span className="dvd-dirty" style={{ right: 12 }} title="有未保存的修改" />}
+              {tab.dirty && tab.id !== activeId && <span className="dvd-dirty" style={{ right: 12 }} title={t('有未保存的修改')} />}
             </div>
           ))}
         </div>
         <Menu
-          label="打开或新建"
+          label={t('打开或新建')}
         align="left"
           icon="plus"
           items={[
-            { label: '打开…  ⌘O', icon: 'folder', onClick: openWithPanel },
-            { label: '新建表格  ⌘N', icon: 'sheet', onClick: newSpreadsheet },
+            { label: t('打开…  ⌘O'), icon: 'folder', onClick: openWithPanel },
+            { label: t('新建表格  ⌘N'), icon: 'sheet', onClick: newSpreadsheet },
           ]}
         />
         <div className="dvd-actions">
@@ -754,28 +759,28 @@ export function Viewer({ active, shell, placement }) {
               <button
                 type="button"
                 className="dvd-iconbtn"
-                title={placement && placement !== 'page' ? '整页查看' : '在对话旁打开'}
-                aria-label={placement && placement !== 'page' ? '整页查看' : '在对话旁打开'}
+                title={placement && placement !== 'page' ? t('整页查看') : t('在对话旁打开')}
+                aria-label={placement && placement !== 'page' ? t('整页查看') : t('在对话旁打开')}
                 onClick={() => { dismissBesideHint(); if (placement && placement !== 'page') shell.openAsPage(); else shell.openBeside(); }}
               >
                 <Icon name={placement && placement !== 'page' ? 'expand' : 'sidebar'} size={16} />
               </button>
               {besideHint && (!placement || placement === 'page') && (
                 <span className="dvd-hint" role="note">
-                  也可以开在对话旁，边聊边看
-                  <button type="button" onClick={dismissBesideHint}>知道了</button>
+                  {t('也可以开在对话旁，边聊边看')}
+                  <button type="button" onClick={dismissBesideHint}>{t('知道了')}</button>
                 </span>
               )}
             </span>
           )}
-          {(!placement || placement === 'page') && <button type="button" className="dvd-btn plain dvd-ask" title="让 Agent 处理这个文档" aria-label="问 Agent" onClick={askAboutActive}>
-            <Icon name="sparkle" size={15} /><span className="dvd-wide">问 Agent</span>
+          {(!placement || placement === 'page') && <button type="button" className="dvd-btn plain dvd-ask" title={t('让 Agent 处理这个文档')} aria-label={t('问 Agent')} onClick={askAboutActive}>
+            <Icon name="sparkle" size={15} /><span className="dvd-wide">{t('问 Agent')}</span>
           </button>}
           <span className="dvd-actions-slot" ref={setActionsEl} />
-          {(!activeTab || activeTab.loading) && <Menu label="更多工具" items={toolItems} />}
+          {(!activeTab || activeTab.loading) && <Menu label={t('更多工具')} items={toolItems} />}
         </div>
       </div>
-      {busy > 0 && <div className="dvd-progress" role="progressbar" aria-label="处理中" />}
+      {busy > 0 && <div className="dvd-progress" role="progressbar" aria-label={t('处理中')} />}
 
       <div className="dvd-body">
         {tabs.length === 0 && (
@@ -814,7 +819,7 @@ export function Viewer({ active, shell, placement }) {
             />
           </div>
         ))}
-        {dragging && <div className="dvd-drop">松开以打开</div>}
+        {dragging && <div className="dvd-drop">{t('松开以打开')}</div>}
         {toast && (
           <div key={toast.id} className={`dvd-toast${toast.error ? ' error' : ''}${toast.leaving ? ' leaving' : ''}`} role="status">
             <span>{toast.message}</span>
@@ -849,30 +854,30 @@ export function Viewer({ active, shell, placement }) {
       )}
       {dialog?.type === 'lossy' && (
         <Sheet
-          title="这是有损转换"
+          title={t('这是有损转换')}
           onClose={closeDialog}
           footer={(
             <>
-              <button type="button" className="dvd-btn" onClick={closeDialog}>取消</button>
-              <button type="button" className="dvd-btn primary" onClick={() => { const { tab, target, outputPath } = dialog; closeDialog(); convertTab(tab, target, true, outputPath); }}>继续转换</button>
+              <button type="button" className="dvd-btn" onClick={closeDialog}>{t('取消')}</button>
+              <button type="button" className="dvd-btn primary" onClick={() => { const { tab, target, outputPath } = dialog; closeDialog(); convertTab(tab, target, true, outputPath); }}>{t('继续转换')}</button>
             </>
           )}
         >
-          <p>{dialog.message || '复杂排版、图片和分栏可能丢失。'}</p>
+          <p>{dialog.message || t('复杂排版、图片和分栏可能丢失。')}</p>
         </Sheet>
       )}
       {dialog?.type === 'needsLocation' && (
         <Sheet
-          title="不能直接存回原文件"
+          title={t('不能直接存回原文件')}
           onClose={() => { dialog.onCancel(); closeDialog(); }}
           footer={(
             <>
-              <button type="button" className="dvd-btn" onClick={() => { dialog.onCancel(); closeDialog(); }}>取消</button>
-              <button type="button" className="dvd-btn primary" onClick={() => { closeDialog(); dialog.onSaveAs(); }}>另存为…</button>
+              <button type="button" className="dvd-btn" onClick={() => { dialog.onCancel(); closeDialog(); }}>{t('取消')}</button>
+              <button type="button" className="dvd-btn primary" onClick={() => { closeDialog(); dialog.onSaveAs(); }}>{t('另存为…')}</button>
             </>
           )}
         >
-          <p>{dialog.reason}。原文件保持不变；另存的新文件里不会有这些内容。</p>
+          <p>{dialog.reason}{t('。原文件保持不变；另存的新文件里不会有这些内容。')}</p>
         </Sheet>
       )}
       {dialog?.type === 'versions' && (
@@ -880,7 +885,7 @@ export function Viewer({ active, shell, placement }) {
           closeDialog();
           try {
             await api.restoreVersion(dialog.path, id);
-            await openPath(dialog.path, { replaces: dialog.path, message: '已恢复到所选版本，恢复前的内容也保留了' });
+            await openPath(dialog.path, { replaces: dialog.path, message: t('已恢复到所选版本，恢复前的内容也保留了') });
           } catch (error) {
             showError(friendly(error), dialog.path);
           }
@@ -889,23 +894,23 @@ export function Viewer({ active, shell, placement }) {
       )}
       {dialog?.type === 'close' && (
         <Sheet
-          title={`“${dialog.tab.name}”有未保存的修改`}
+          title={t('“{0}”有未保存的修改', dialog.tab.name)}
           onClose={closeDialog}
           footer={(
             <>
-              <button type="button" className="dvd-btn" onClick={closeDialog}>取消</button>
-              <button type="button" className="dvd-btn" onClick={() => { const { tab } = dialog; closeDialog(); closeNow(tab); }}>不保存</button>
+              <button type="button" className="dvd-btn" onClick={closeDialog}>{t('取消')}</button>
+              <button type="button" className="dvd-btn" onClick={() => { const { tab } = dialog; closeDialog(); closeNow(tab); }}>{t('不保存')}</button>
               <button type="button" className="dvd-btn primary" onClick={async () => {
                 const { tab } = dialog;
                 closeDialog();
                 const saved = await commands.current.get(tab.id)?.save?.();
                 if (saved) closeNow(tab);
               }}
-              >保存</button>
+              >{t('保存')}</button>
             </>
           )}
         >
-          <p>不保存的话，这些修改会丢失。</p>
+          <p>{t('不保存的话，这些修改会丢失。')}</p>
         </Sheet>
       )}
       <input
@@ -965,11 +970,11 @@ class TabErrorBoundary extends React.Component {
     if (this.state.error) {
       return (
         <div className="dvd-center">
-          <h3>这个文档无法显示</h3>
+          <h3>{t('这个文档无法显示')}</h3>
           <p>{String(this.state.error?.message || this.state.error)}</p>
           <div className="dvd-empty-actions" style={{ marginTop: 4 }}>
-            <button type="button" className="dvd-btn" onClick={() => this.setState({ error: null })}>重试</button>
-            <button type="button" className="dvd-btn" onClick={() => this.props.askAgent(`文档页显示「${this.props.tab.name}」时出错：${String(this.state.error?.message || this.state.error)}\n文件：${this.props.tab.path}\n请帮我看看原因。`)}>问 Agent</button>
+            <button type="button" className="dvd-btn" onClick={() => this.setState({ error: null })}>{t('重试')}</button>
+            <button type="button" className="dvd-btn" onClick={() => this.props.askAgent(t('文档页显示「{0}」时出错：{1}\n文件：{2}\n请帮我看看原因。', this.props.tab.name, String(this.state.error?.message || this.state.error), this.props.tab.path))}>{t('问 Agent')}</button>
           </div>
         </div>
       );
@@ -979,6 +984,20 @@ class TabErrorBoundary extends React.Component {
 }
 
 /** Earlier versions of a file saved in place, newest first. */
+/** What a kept version was taken before, from the reason the Host recorded. */
+function versionLabel(reason) {
+  const labels = {
+    保存: t('保存前'),
+    'Agent 修改': t('Agent 修改前'),
+    恢复: t('恢复前'),
+    恢复前: t('恢复前'),
+    被另存为替换: t('被另存为替换前'),
+    被导出替换: t('被导出替换前'),
+    被合并结果替换: t('被合并结果替换前'),
+  };
+  return labels[reason] ?? (reason.endsWith('前') ? reason : `${reason}前`);
+}
+
 function VersionsSheet({ path, onClose, onRestore }) {
   const [versions, setVersions] = React.useState(null);
   const [error, setError] = React.useState(null);
@@ -986,18 +1005,18 @@ function VersionsSheet({ path, onClose, onRestore }) {
     api.versions(path).then((result) => setVersions(result.versions), (reason) => setError(reason.message));
   }, [path]);
   return (
-    <Sheet title="恢复到之前的版本" onClose={onClose} footer={<button type="button" className="dvd-btn" onClick={onClose}>完成</button>}>
-      <p>每次保存或 Agent 修改前，原来的内容都会自动保留（最近的版本和最早的一份，共 20 个，保留 30 天），不占用你的文件夹。</p>
+    <Sheet title={t('恢复到之前的版本')} onClose={onClose} footer={<button type="button" className="dvd-btn" onClick={onClose}>{t('完成')}</button>}>
+      <p>{t('每次保存或 Agent 修改前，原来的内容都会自动保留（最近的版本和最早的一份，共 20 个，保留 30 天），不占用你的文件夹。')}</p>
       <div className="dvd-list">
         {versions?.map((version, index) => (
           <div className="dvd-result" key={version.id}>
             <span className="dvd-row-name">{new Date(version.at).toLocaleString()}</span>
-            <span className="dvd-row-meta">{version.reason.endsWith('前') ? version.reason : `${version.reason}前`}{index > 0 && index === versions.length - 1 ? ' · 最早' : ''}</span>
-            <button type="button" className="dvd-btn plain" onClick={() => onRestore(version.id)}>恢复</button>
+            <span className="dvd-row-meta">{versionLabel(version.reason)}{index > 0 && index === versions.length - 1 ? t(' · 最早') : ''}</span>
+            <button type="button" className="dvd-btn plain" onClick={() => onRestore(version.id)}>{t('恢复')}</button>
           </div>
         ))}
-        {versions?.length === 0 && <div className="dvd-empty-note">还没有保存过的版本</div>}
-        {!versions && !error && <div className="dvd-empty-note">正在读取…</div>}
+        {versions?.length === 0 && <div className="dvd-empty-note">{t('还没有保存过的版本')}</div>}
+        {!versions && !error && <div className="dvd-empty-note">{t('正在读取…')}</div>}
         {error && <div className="dvd-empty-note dvd-bad">{error}</div>}
       </div>
     </Sheet>

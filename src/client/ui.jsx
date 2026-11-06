@@ -1,5 +1,6 @@
 /** Small controls shared by the document tabs and sheets. */
 import React from 'react';
+import { t } from './i18n.js';
 import { createPortal } from 'react-dom';
 import { Icon } from './icons.jsx';
 
@@ -20,7 +21,7 @@ export function Sheet({ title, wide, onClose, footer, children }) {
       <div className={`dvd-card${wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
         <div className="dvd-card-head">
           <h3>{title}</h3>
-          <button type="button" className="dvd-iconbtn small" onClick={onClose} aria-label="关闭"><Icon name="close" size={14} /></button>
+          <button type="button" className="dvd-iconbtn small" onClick={onClose} aria-label={t('关闭')}><Icon name="close" size={14} /></button>
         </div>
         <div className="dvd-card-body">{children}</div>
         {footer && <div className="dvd-card-foot">{footer}</div>}
@@ -85,13 +86,13 @@ export function Segmented({ value, options, onChange }) {
  * The floating find field used by every document kind. `children` holds extra
  * rows such as replace.
  */
-export function FindBar({ query, onQuery, count, index, busy, onNext, onPrev, onClose, placeholder = '查找', children }) {
+export function FindBar({ query, onQuery, count, index, busy, onNext, onPrev, onClose, placeholder = t('查找'), children }) {
   const input = React.useRef(null);
   React.useEffect(() => {
     input.current?.focus();
     input.current?.select();
   }, []);
-  const status = busy ? '…' : query.trim() === '' ? '' : count === 0 ? '无结果' : `${index + 1} / ${count}${count >= 1000 ? '+' : ''}`;
+  const status = busy ? '…' : query.trim() === '' ? '' : count === 0 ? t('无结果') : `${index + 1} / ${count}${count >= 1000 ? '+' : ''}`;
   return (
     <div className="dvd-find" role="search">
       <div className="dvd-find-row">
@@ -116,9 +117,9 @@ export function FindBar({ query, onQuery, count, index, busy, onNext, onPrev, on
           }}
         />
         <span className="dvd-find-count">{status}</span>
-        <button type="button" className="dvd-iconbtn small" onClick={onPrev} disabled={!count} aria-label="上一个"><Icon name="chevronUp" size={14} /></button>
-        <button type="button" className="dvd-iconbtn small" onClick={onNext} disabled={!count} aria-label="下一个"><Icon name="chevronDown" size={14} /></button>
-        <button type="button" className="dvd-iconbtn small" onClick={onClose} aria-label="关闭查找"><Icon name="close" size={14} /></button>
+        <button type="button" className="dvd-iconbtn small" onClick={onPrev} disabled={!count} aria-label={t('上一个')}><Icon name="chevronUp" size={14} /></button>
+        <button type="button" className="dvd-iconbtn small" onClick={onNext} disabled={!count} aria-label={t('下一个')}><Icon name="chevronDown" size={14} /></button>
+        <button type="button" className="dvd-iconbtn small" onClick={onClose} aria-label={t('关闭查找')}><Icon name="close" size={14} /></button>
       </div>
       {children}
     </div>
@@ -142,16 +143,16 @@ export function formatSize(bytes) {
 export function relativeTime(at) {
   if (!at) return '';
   const minutes = Math.floor((Date.now() - at) / 60_000);
-  if (minutes < 1) return '刚刚';
-  if (minutes < 60) return `${minutes} 分钟前`;
+  if (minutes < 1) return t('刚刚');
+  if (minutes < 60) return t('{0} 分钟前', minutes);
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} 小时前`;
+  if (hours < 24) return t('{0} 小时前', hours);
   const days = Math.floor(hours / 24);
-  return days < 30 ? `${days} 天前` : new Date(at).toLocaleDateString();
+  return days < 30 ? t('{0} 天前', days) : new Date(at).toLocaleDateString();
 }
 
 /** A quiet outline of what is about to appear, instead of a spinner. */
-export function Skeleton({ kind = 'document', label = '正在打开…' }) {
+export function Skeleton({ kind = 'document', label = t('正在打开…') }) {
   if (kind === 'spreadsheet') {
     return (
       <div className="dvd-skeleton grid" role="status" aria-label={label}>

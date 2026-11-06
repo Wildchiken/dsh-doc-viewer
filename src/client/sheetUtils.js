@@ -1,5 +1,6 @@
 /** Client-side sheet helpers: reading the grid's matrix, statistics and the chart. */
 import { getBorderInfoCompute } from '@fortune-sheet/core';
+import { lang, t } from './i18n.js';
 
 /** @param {number} index */
 export function colName(index) {
@@ -161,7 +162,7 @@ export function computeSheetStats(cells, { hasHeader, groupIndex, valueIndex, ag
   if (groupIndex >= 0 && valueIndex >= 0) {
     const buckets = new Map();
     for (const row of body) {
-      const key = displayOf(row[groupIndex]) || '(空)';
+      const key = displayOf(row[groupIndex]) || t('(空)');
       const value = numberOf(row[valueIndex]);
       if (value === undefined) continue;
       if (!buckets.has(key)) buckets.set(key, []);
@@ -180,7 +181,8 @@ export function computeSheetStats(cells, { hasHeader, groupIndex, valueIndex, ag
   return { summary, groups };
 }
 
-export const AGG_LABELS = { sum: '合计', average: '平均', count: '计数', max: '最大', min: '最小' };
+/** Names of the aggregations, in the interface language. */
+export const aggLabels = () => ({ sum: t('合计'), average: t('平均'), count: t('计数'), max: t('最大'), min: t('最小') });
 
 /** @param {number} value */
 export function formatNumber(value) {
@@ -191,16 +193,16 @@ export function formatNumber(value) {
 /** Build a sheet holding the statistics table, ready for the grid or for saving. */
 export function buildStatsSheet({ summary, groups, agg, groupName, valueName }, name) {
   const rows = [
-    ['指标', '值'],
-    ['合计', summary.sum],
-    ['平均', summary.average],
-    ['最大', summary.max],
-    ['最小', summary.min],
-    ['计数', summary.count],
-    ['去重计数', summary.distinct],
+    [t('指标'), t('值')],
+    [t('合计'), summary.sum],
+    [t('平均'), summary.average],
+    [t('最大'), summary.max],
+    [t('最小'), summary.min],
+    [t('计数'), summary.count],
+    [t('去重计数'), summary.distinct],
   ];
   if (groups.length) {
-    rows.push([], [groupName || '分组', `${valueName || '数值'}（${AGG_LABELS[agg]}）`]);
+    rows.push([], [groupName || t('分组'), t('{0}（{1}）', valueName || t('数值'), aggLabels()[agg])]);
     for (const group of groups) rows.push([group.key, group.value]);
   }
   const celldata = rows.flatMap((row, r) => row.map((value, c) => {
@@ -285,7 +287,8 @@ export function renderChartSvg(groups, title, type = 'bar', width = 620, height 
 
 /** @param {number} value */
 function formatTick(value) {
-  if (Math.abs(value) >= 10000) return `${(value / 10000).toFixed(1)}万`;
+  // Chinese counts in 万 (10,000); English in thousands.
+  if (Math.abs(value) >= 10000) return lang() === 'zh' ? `${(value / 10000).toFixed(1)}万` : `${Math.round(value / 1000)}k`;
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 

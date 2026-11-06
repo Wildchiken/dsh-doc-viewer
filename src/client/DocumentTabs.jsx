@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from './i18n.js';
 import { Marked } from 'marked';
 import { Icon } from './icons.jsx';
 import { FindBar, Menu, Segmented, TabActions } from './ui.jsx';
@@ -14,7 +15,7 @@ const markdown = new Marked({
   gfm: true,
   renderer: {
     image({ text, href }) {
-      return `<span style="color:#86868b">[图片：${escapeHtml(text || href)}]</span>`;
+      return t('<span style="color:#86868b">[图片：{0}]</span>', escapeHtml(text || href));
     },
   },
 });
@@ -24,8 +25,8 @@ export function DocxTab({ tab, actionsEl, onConvert, toolItems }) {
   return (
     <>
       <TabActions target={actionsEl}>
-        <Menu label="Word 操作" items={[{ label: '提取文字', icon: 'text', onClick: () => onConvert(tab, 'txt') }, '-', ...toolItems]} />
-        <button type="button" className="dvd-btn" style={{ margin: '0 4px' }} onClick={() => onConvert(tab, 'pdf')}>导出 PDF…</button>
+        <Menu label={t('Word 操作')} items={[{ label: t('提取文字'), icon: 'text', onClick: () => onConvert(tab, 'txt') }, '-', ...toolItems]} />
+        <button type="button" className="dvd-btn" style={{ margin: '0 4px' }} onClick={() => onConvert(tab, 'pdf')}>{t('导出 PDF…')}</button>
       </TabActions>
       <div className="dvd-paper">
         <iframe title={tab.name} srcDoc={srcDoc} sandbox="" />
@@ -50,7 +51,7 @@ function paperDocument(html) {
   code{font-family:ui-monospace,"SF Mono",SFMono-Regular,Menlo,monospace;font-size:.9em}:not(pre)>code{background:#f5f5f7;padding:1px 4px;border-radius:3px}
   hr{border:0;border-top:1px solid #d2d2d7;margin:20px 0}li>input{margin:0 6px 0 -20px}li:has(>input){list-style:none}
   a{color:#4d6bfe;text-decoration:none}
-  </style></head><body>${html || '<p style="color:#86868b">这个文档没有可显示的正文。</p>'}</body></html>`;
+  </style></head><body>${html || t('<p style="color:#86868b">这个文档没有可显示的正文。</p>')}</body></html>`;
 }
 
 export function TextTab({ tab, actionsEl, pageActive, selected, setDirty, saveText, saveSnapshot, onConvert, registerCommands, toast, toolItems }) {
@@ -149,20 +150,20 @@ export function TextTab({ tab, actionsEl, pageActive, selected, setDirty, saveTe
   const copyAll = async () => {
     try {
       await navigator.clipboard.writeText(text);
-      toast('已复制全文');
+      toast(t('已复制全文'));
     } catch {
-      toast('无法写入剪贴板', true);
+      toast(t('无法写入剪贴板'), true);
     }
   };
 
   return (
     <>
       <TabActions target={actionsEl}>
-        {isMarkdown && <Segmented value={view} onChange={setView} options={[{ value: 'preview', label: '预览' }, { value: 'source', label: editable ? '编辑' : '源码' }]} />}
-        <button type="button" className="dvd-iconbtn" title="查找 ⌘F" aria-label="查找" aria-pressed={findOpen} onClick={() => setFindOpen((open) => !open)}><Icon name="search" /></button>
-        <Menu label="文本操作" items={[{ label: '复制全文', icon: 'copy', onClick: copyAll }, '-', ...toolItems]} />
-        <button type="button" className="dvd-btn" style={{ margin: '0 4px' }} onClick={exportPdf}>导出 PDF…</button>
-        {editable && <button type="button" className={`dvd-btn${tab.dirty ? ' primary' : ''}`} style={{ marginRight: 4 }} title="存回原文件，修改前的版本会自动保留 ⌘S" onClick={save}>保存</button>}
+        {isMarkdown && <Segmented value={view} onChange={setView} options={[{ value: 'preview', label: t('预览') }, { value: 'source', label: editable ? t('编辑') : t('源码') }]} />}
+        <button type="button" className="dvd-iconbtn" title={t('查找 ⌘F')} aria-label={t('查找')} aria-pressed={findOpen} onClick={() => setFindOpen((open) => !open)}><Icon name="search" /></button>
+        <Menu label={t('文本操作')} items={[{ label: t('复制全文'), icon: 'copy', onClick: copyAll }, '-', ...toolItems]} />
+        <button type="button" className="dvd-btn" style={{ margin: '0 4px' }} onClick={exportPdf}>{t('导出 PDF…')}</button>
+        {editable && <button type="button" className={`dvd-btn${tab.dirty ? ' primary' : ''}`} style={{ marginRight: 4 }} title={t('存回原文件，修改前的版本会自动保留 ⌘S')} onClick={save}>{t('保存')}</button>}
       </TabActions>
       {findOpen && (
         <FindBar query={query} onQuery={setQuery} count={positions.length} index={index} onNext={() => move(1)} onPrev={() => move(-1)} onClose={() => { setFindOpen(false); setQuery(''); }} />
@@ -170,7 +171,7 @@ export function TextTab({ tab, actionsEl, pageActive, selected, setDirty, saveTe
       {previewing
         ? <div className="dvd-paper"><iframe title={tab.name} srcDoc={previewDocument} sandbox="" /></div>
         : editable && !findOpen
-          ? <div className="dvd-text editing"><textarea aria-label={`编辑 ${tab.name}`} value={text} spellCheck={false} onChange={(event) => edit(event.target.value)} /></div>
+          ? <div className="dvd-text editing"><textarea aria-label={t('编辑 {0}', tab.name)} value={text} spellCheck={false} onChange={(event) => edit(event.target.value)} /></div>
           : <div className="dvd-text" ref={body}><pre>{content}</pre></div>}
     </>
   );

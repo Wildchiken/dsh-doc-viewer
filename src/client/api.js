@@ -7,10 +7,10 @@ async function parse(response) {
   try {
     payload = await response.json();
   } catch {
-    throw new Error(`请求失败（HTTP ${response.status}）`);
+    throw new Error(t('请求失败（HTTP {0}）', response.status));
   }
   if (!response.ok || payload?.ok === false) {
-    const error = new Error(payload?.message || `请求失败（HTTP ${response.status}）`);
+    const error = new Error(payload?.message || t('请求失败（HTTP {0}）', response.status));
     error.code = payload?.code;
     error.status = response.status;
     throw error;
