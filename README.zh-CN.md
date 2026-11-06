@@ -18,10 +18,10 @@ DeepSeek Harness 插件：**你的原文件，你和 Agent 一起改。** 在 Ha
 
 ```bash
 DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
-"$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/latest/download/dsh-doc-viewer.tgz
+"$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/download/v1.7.0/dsh-doc-viewer-1.7.0.tgz
 ```
 
-更新时先运行 `"$DSH" plugin --profile desktop remove dsh-doc-viewer`，再运行同一条 `add`。第一次安装还要在 `~/.dsh/profiles/desktop/package.json` 的 `dsh.profile.bundles` 里加上 `"dsh-doc-viewer"`，重启 Harness。用过 1.6 及以前（包名 `@local/doc-viewer`）的，先 `plugin --profile desktop remove @local/doc-viewer`，bundles 里的旧名字也换掉。
+更新时先运行 `"$DSH" plugin --profile desktop remove dsh-doc-viewer`，再用[最新 Release](https://github.com/Wildchiken/dsh-doc-viewer/releases/latest) 的地址 `add`。第一次安装还要在 `~/.dsh/profiles/desktop/package.json` 的 `dsh.profile.bundles` 里加上 `"dsh-doc-viewer"`，重启 Harness。用过 1.6 及以前（包名 `@local/doc-viewer`）的，先 `plugin --profile desktop remove @local/doc-viewer`，bundles 里的旧名字也换掉。
 
 ## 用法
 

@@ -29,10 +29,10 @@ Requires DeepSeek Harness 0.2.2 or later. Tested in the macOS desktop app and th
 
 ```bash
 DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
-"$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/latest/download/dsh-doc-viewer.tgz
+"$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/download/v1.7.0/dsh-doc-viewer-1.7.0.tgz
 ```
 
-To update, run `"$DSH" plugin --profile desktop remove dsh-doc-viewer` first, then the same `add`. The first time, also add `"dsh-doc-viewer"` to `dsh.profile.bundles` in `~/.dsh/profiles/desktop/package.json` and restart Harness. If you used version 1.6 or earlier (named `@local/doc-viewer`), remove that package first and replace the old name in `bundles`.
+To update, run `"$DSH" plugin --profile desktop remove dsh-doc-viewer`, then `add` with the address of the [newest release](https://github.com/Wildchiken/dsh-doc-viewer/releases/latest). The first time, also add `"dsh-doc-viewer"` to `dsh.profile.bundles` in `~/.dsh/profiles/desktop/package.json` and restart Harness. If you used version 1.6 or earlier (named `@local/doc-viewer`), remove that package first and replace the old name in `bundles`.
 
 ## What it does
 

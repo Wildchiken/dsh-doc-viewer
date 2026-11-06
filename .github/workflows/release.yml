@@ -30,7 +30,8 @@ jobs:
           DSH_LIBREOFFICE_CLI: none
       # prepack builds the client and the OCR helper from source.
       - run: pnpm pack --pack-destination dist
-      # Also as dsh-doc-viewer.tgz, so releases/latest/download/dsh-doc-viewer.tgz is always the newest.
+      # Also as dsh-doc-viewer.tgz, a stable link for people to download by hand. Installs should use
+      # the versioned file: pnpm records its checksum, so its content must never change.
       - name: GitHub release with the package attached
         run: |
           cp dist/dsh-doc-viewer-*.tgz dist/dsh-doc-viewer.tgz
