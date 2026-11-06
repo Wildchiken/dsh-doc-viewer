@@ -4,7 +4,7 @@
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件：你和 Agent 一起直接改你自己的表格。Agent 改了哪些格子，会在你开着的表格里亮出来，所有内容都留在本机。
 
-![在对话里说一句，Agent 改好开着的表格，改过的格子用蓝框标出](docs/screenshot.png)
+![在对话里说一句，Agent 改好开着的表格，改过的格子用蓝框标出](docs/hero.zh-CN.svg)
 
 ## 功能
 
@@ -24,7 +24,7 @@ DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
 "$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/download/v1.7.0/dsh-doc-viewer-1.7.0.tgz
 ```
 
-然后在 `~/.dsh/profiles/desktop/package.json` 的 `dsh.profile.bundles` 里加上 `"dsh-doc-viewer"`，重启 Harness。
+然后重启 Harness。
 
 更新时先运行 `plugin --profile desktop remove dsh-doc-viewer`，再 `add` [最新 Release](https://github.com/Wildchiken/dsh-doc-viewer/releases/latest) 里的文件。
 
