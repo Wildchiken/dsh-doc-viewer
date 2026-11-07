@@ -19,6 +19,7 @@ import { promisify } from 'node:util';
 import { decodeText, looksDelimited } from './encoding.js';
 import { engineReason, recalculateWorkbook } from './libreoffice.js';
 import { layoutSheetForPrint } from './print.js';
+import { liteEvaluator } from './formula-lite.js';
 import {
   ensureDir,
   escapeRe,
@@ -646,6 +647,10 @@ export async function loadSpreadsheet(path, options = {}) {
     }
   }
 
+  // Results LibreOffice has not given yet: the simple ones are worked out here, which is far
+  // quicker than the grid's own engine (40 seconds for 40,000 formulas, with the page frozen).
+  const unresolved = missingResults && !recalculated ? fillSimpleResults(sheets) : 0;
+
   const cellCount = sheets.reduce((sum, sheet) => sum + (sheet.celldata?.length || 0), 0);
   if (cellCount > (options.maxCells || 1_000_000)) {
     warnings.push({ code: 'large', message: t('表格较大（{0} 个非空单元格），操作可能会变慢。', cellCount.toLocaleString()) });
@@ -671,7 +676,7 @@ export async function loadSpreadsheet(path, options = {}) {
       formulas: formulas.length,
       recalculated,
       // Formulas with no result yet, which the grid's own engine has to compute.
-      unresolved: missingResults && !recalculated,
+      unresolved: unresolved > 0,
       // LibreOffice was not asked yet; opening again without `later` gets its results.
       pendingCalculation: later && missingResults,
     },
@@ -1008,6 +1013,8 @@ export function displayValue(cell) {
   if (typeof cell.v === 'number' && cell.ct?.fa && cell.ct.fa !== 'General') {
     try { return SSF.format(cell.ct.fa, cell.v); } catch { return String(cell.v); }
   }
+  // General: at most 15 significant digits, as Excel keeps them, so 27*117.29 shows 3166.83.
+  if (typeof cell.v === 'number' && Number.isFinite(cell.v)) return String(Number(cell.v.toPrecision(15)));
   return String(cell.v);
 }
 
@@ -1177,6 +1184,38 @@ function totalOver(formula, c, r) {
   const column = XLSX.utils.encode_col(c);
   const [top, bottom] = [Number(r1), Number(r2)].sort((a, b) => a - b);
   return c1.toUpperCase() === column && c2.toUpperCase() === column && bottom <= r && bottom - top >= 1 ? formula.replace(/^(?!=)/, '=') : undefined;
+}
+
+/**
+ * Fill formulas that have no result with what the lite evaluator works out.
+ * @param {any[]} sheets FortuneSheet sheets, changed in place
+ * @returns {number} how many formulas are still without a result
+ */
+function fillSimpleResults(sheets) {
+  const hasResult = (v) => v.v !== undefined && v.v !== null && v.v !== '';
+  const cells = new Map(sheets.map((sheet) => [sheet.name, new Map(sheet.celldata.map((entry) => [XLSX.utils.encode_cell({ r: entry.r, c: entry.c }), entry.v]))]));
+  const resultOf = liteEvaluator((sheet, address) => {
+    const v = cells.get(sheet)?.get(address);
+    if (!v) return undefined;
+    if (v.f && !hasResult(v)) return { formula: v.f };
+    if (v.ct?.t === 'e') return { value: { error: String(v.m ?? v.v) } };
+    return { value: v.v ?? null };
+  });
+  let unresolved = 0;
+  for (const sheet of sheets) {
+    for (const entry of sheet.celldata) {
+      const v = entry.v;
+      if (!v?.f || hasResult(v)) continue;
+      const result = resultOf(sheet.name, XLSX.utils.encode_cell({ r: entry.r, c: entry.c }));
+      if (result === undefined) { unresolved += 1; continue; }
+      const failed = typeof result === 'object' && result !== null;
+      v.v = failed ? result.error : result;
+      v.ct = { ...(v.ct || { fa: 'General' }), t: failed ? 'e' : typeof result === 'number' ? (looksDateFormat(v.ct?.fa) ? 'd' : 'n') : typeof result === 'boolean' ? 'b' : 's' };
+      delete v.m;
+      v.m = failed ? result.error : String(displayValue(v));
+    }
+  }
+  return unresolved;
 }
 
 export function computeStats(sheets, request = {}) {

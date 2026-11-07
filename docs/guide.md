@@ -11,7 +11,7 @@ English · [简体中文](guide.zh-CN.md)
 - **Open.** "Open…" / ⌘O uses the system's open panel; the file opens where it is, not copied. Files dragged in from Finder reach the page without their path, so they are kept in the system's temporary folder and Save asks where to put them.
 - **New table.** The "+" menu, "New table" in the empty page, or ⌘N. Name it in the system's save panel and it opens right away; the suggested name avoids existing files.
 - **Save.** ⌘S writes back to the original file. Before overwriting, the old content is kept as a version (`~/.dsh/doc-viewer/versions`: the latest versions plus the oldest, 20 per file, kept 30 days, never in your folders). After saving you can "Undo save" step by step, or pick one from "Restore a previous version…".
-- **No waiting to open.** Tables made by scripts or agents often hold formulas without results. The table shows first, with what the built-in engine can work out; LibreOffice fills in the rest in the background (including functions such as XLOOKUP), and this doesn't count as an edit. LibreOffice takes ten seconds or so after Harness starts, and the table can be read and edited meanwhile.
+- **No waiting to open.** Tables made by scripts or agents often hold formulas without results. The table shows first, with the common formulas already worked out; LibreOffice fills in the rest in the background (including functions such as XLOOKUP), and this doesn't count as an edit. LibreOffice takes ten seconds or so after Harness starts, and the table can be read and edited meanwhile.
 - **Quitting without saving.** When you stop editing, unsaved edits are kept as a snapshot (`~/.dsh/doc-viewer/recovery`) and restored the next time the Documents page opens. You can also discard them.
 - **No risky overwrites.** If the original holds something this plugin can't write back (charts, pivot tables, macros, conditional formats, data validation, comments, images), is an old `.xls/.et`, or was changed by another program since it was opened, it isn't overwritten: you are told why and asked where to save a copy.
 - **Save / Save As… / Export PDF….** Save writes the original file. Save As… writes a new file elsewhere or in another format, and the tab follows the new file. Export PDF… makes a PDF and leaves the original alone. Save As and Export open the system's save panel, next to the original with the same name. Batch conversions and files the agent makes go next to their originals.
@@ -42,7 +42,7 @@ Tables: A4, columns sized to their content; wide tables turn landscape and shrin
 
 ## Known limits
 
-- Saving an xlsx writes each formula's result, calculated by LibreOffice, so other programs read correct values without calculating. Without LibreOffice, common formulas (arithmetic, references, SUM / AVERAGE / MIN / MAX / COUNT / ROUND / ABS) are worked out here; the rest are saved without a result and Excel recalculates them on opening, and unknown functions can't be checked before writing. Functions Excel has and LibreOffice doesn't (such as `LAMBDA`) can't be written by the agent.
+- Saving an xlsx writes each formula's result, calculated by LibreOffice, so other programs read correct values without calculating. Without LibreOffice, common formulas are worked out here: arithmetic, comparisons, `&`, references, SUM / AVERAGE / MIN / MAX / COUNT / COUNTA / ROUND / ROUNDUP / ROUNDDOWN / ABS / IF / IFERROR / AND / OR / NOT, and error values such as `#DIV/0!`. The rest are saved without a result and Excel recalculates them on opening, and function names can't be checked before writing. Functions Excel has and LibreOffice doesn't (such as `LAMBDA`) can't be written by the agent.
 - The table's own engine lacks newer functions such as `XLOOKUP`, `FILTER` and `LET`. LibreOffice gives their results about a second after an edit, and `#NAME?` may show briefly meanwhile. Beyond 200,000 cells there is no live calculation; reopen after saving for correct results.
 - Saving a table opens the original and writes only the changed cells (values, formulas, fonts, fills, alignment, number formats, borders, merges, row heights and column widths, frozen panes); inserted and deleted rows and columns are replayed on the original first. Hyperlinks, named ranges, hidden sheets, print settings, conditional formats, data validation, images, comments and theme colors are kept as they are.
 - Files with charts, pivot tables, macros, slicers, form controls, sparklines or shapes / text boxes are never overwritten, only saved as a copy (without those parts).
@@ -55,7 +55,7 @@ Tables: A4, columns sized to their content; wide tables turn landscape and shrin
 - Old `.doc` / `.wps` / `.et` need the LibreOffice Kit that comes with Harness.
 - OCR uses macOS Vision and needs macOS 13 or later (Apple silicon or Intel).
 - Text files over 2 MB and files dragged in from Finder are read-only. Word and PDF can't be edited.
-- Large tables take a while: 20,000 rows can take tens of seconds on a busy machine.
+- A table of 20,000 rows and 40,000 formulas opens in about a second.
 - Tested only on macOS. Linux and Windows are untried; reports are welcome.
 
 ## Development

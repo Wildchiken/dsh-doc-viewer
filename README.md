@@ -23,7 +23,7 @@ Requires DeepSeek Harness 0.2.2 or later.
 
 ```bash
 DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
-"$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/download/v1.8.2/dsh-doc-viewer-1.8.2.tgz
+"$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/download/v1.9.0/dsh-doc-viewer-1.9.0.tgz
 ```
 
 Then restart Harness.
@@ -34,7 +34,7 @@ To update, run `plugin --profile desktop remove dsh-doc-viewer`, then `add` the 
 
 - Tested only on macOS.
 - Word and PDF can't be edited. Text files over 2 MB open read-only.
-- 20,000 rows can take tens of seconds to open.
+- Beyond 200,000 cells, formulas don't recalculate as you type.
 - OCR needs macOS 13 or later.
 
 More in the [guide](docs/guide.md).

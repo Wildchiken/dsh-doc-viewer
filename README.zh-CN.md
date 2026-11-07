@@ -23,7 +23,7 @@
 
 ```bash
 DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
-"$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/download/v1.8.2/dsh-doc-viewer-1.8.2.tgz
+"$DSH" plugin --profile desktop add https://github.com/Wildchiken/dsh-doc-viewer/releases/download/v1.9.0/dsh-doc-viewer-1.9.0.tgz
 ```
 
 然后重启 Harness。
@@ -34,7 +34,7 @@ DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
 
 - 只在 macOS 上测过。
 - Word 和 PDF 不能编辑，超过 2 MB 的文本文件只读。
-- 2 万行的表可能要几十秒才能打开。
+- 超过 20 万个单元格的表，输入时公式不实时重算。
 - OCR 需要 macOS 13 或更新版本。
 
 更多内容见[详细说明](docs/guide.zh-CN.md)。

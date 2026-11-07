@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.0
+
+- Large tables whose formulas have no saved results open in about a second instead of freezing the page: 20,000 rows with 40,000 formulas took 40 seconds before.
+- Numbers show at most 15 significant digits, as in Excel: 27 × 117.29 reads 3166.83, not 3166.8300000000004.
+- Without LibreOffice, the built-in calculator also handles comparisons, `&`, IF, IFERROR, AND, OR, NOT, COUNTA, ROUNDUP, ROUNDDOWN and error values such as `#DIV/0!`.
+
 ## 1.8.2
 
 - The Documents entry in the sidebar follows the Harness language again; in 1.8.0 and 1.8.1 it always read "Documents".

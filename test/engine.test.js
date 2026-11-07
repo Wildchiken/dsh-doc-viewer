@@ -100,11 +100,17 @@ describe('number formats', () => {
     const sheet = book.addWorksheet('表');
     sheet.getCell('A1').value = 2;
     sheet.getCell('B1').value = { formula: 'A1*3' };
+    sheet.getCell('B2').value = { formula: 'XLOOKUP(A1,A1:A1,A1:A1)' };
     await book.xlsx.writeFile(path);
-    const { stats } = await openDocument(path, { recalc: 'later' });
+    const { stats, sheets } = await openDocument(path, { recalc: 'later' });
     assert.equal(stats.recalculated, false, 'nothing waits for LibreOffice');
     assert.equal(stats.pendingCalculation, true, 'the page knows to ask again');
-    assert.equal(stats.unresolved, true, 'the grid computes what it can meanwhile');
+    const b1 = sheets[0].celldata.find((entry) => entry.r === 0 && entry.c === 1).v;
+    assert.deepEqual([b1.v, b1.m], [6, '6'], 'simple formulas are worked out on the spot');
+    assert.equal(stats.unresolved, true, 'the grid computes the rest meanwhile');
+    sheet.getCell('B2').value = null;
+    await book.xlsx.writeFile(path);
+    assert.equal((await openDocument(path, { recalc: 'later' })).stats.unresolved, false, 'nothing is left for the grid when every formula was worked out');
     const saved = join(tempDir('doc-viewer-later-'), '算过.xlsx');
     sheet.getCell('B1').value = { formula: 'A1*3', result: 6 };
     await book.xlsx.writeFile(saved);
@@ -252,11 +258,33 @@ describe('formulas worked out without LibreOffice', () => {
 
   test('anything it does not know stays unknown instead of being guessed', () => {
     const at = liteEvaluator(book({
-      '表!A1': v(1), '表!A2': v('文字'),
-      '表!B1': f('=XLOOKUP(A1,A1:A2,A1:A2)'), '表!B2': f('=A2*2'), '表!B3': f('=A1/0'),
-      '表!B4': f('=B5+1'), '表!B5': f('=B4+1'), '表!B6': f('=B1+1'), '表!B7': f('=IF(A1>0,1,2)'),
+      '表!A1': v(1), '表!A2': v(new Date(2026, 0, 1)),
+      '表!B1': f('=XLOOKUP(A1,A1:A2,A1:A2)'), '表!B2': f('=A2+1'), '表!B3': f('=Sales'),
+      '表!B4': f('=B5+1'), '表!B5': f('=B4+1'), '表!B6': f('=B1+1'), '表!B7': f('=IF(A1>0,B1,2)'), '表!B8': f('=SUM(A1:A1)*{1,2}'),
     }));
-    for (const address of ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7']) assert.equal(at('表', address), undefined, address);
+    for (const address of ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8']) assert.equal(at('表', address), undefined, address);
+  });
+
+  test("Excel's error values, worked out and passed along", () => {
+    const at = liteEvaluator(book({
+      '表!A1': v(10), '表!A2': v(0), '表!A3': v('文字'), '表!A4': v({ error: '#N/A' }),
+      '表!B1': f('=A1/A2'), '表!B2': f('=B1+1'), '表!B3': f('=A3*2'), '表!B4': f('=SUM(A1:A4)'),
+      '表!B5': f('=AVERAGE(A3:A3)'), '表!B6': f('=IFERROR(A1/A2,0)'), '表!B7': f('=IF(A2=0,"无",A1/A2)'),
+      '表!B8': f('=A4'), '表!B9': f('=SUM(A1:A3)'),
+    }));
+    assert.deepEqual(['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B9'].map((address) => at('表', address)),
+      [{ error: '#DIV/0!' }, { error: '#DIV/0!' }, { error: '#VALUE!' }, { error: '#N/A' }, { error: '#DIV/0!' }, 0, '无', { error: '#N/A' }, 10]);
+  });
+
+  test('comparisons, IF, text joined with & and the other common functions', () => {
+    const at = liteEvaluator(book({
+      '表!A1': v(85), '表!A2': v('华东'), '表!A3': v(2.345), '表!A4': v(null),
+      '表!B1': f('=IF(A1>=60,"及格","不及格")'), '表!B2': f('=A2&"区"&A1'), '表!B3': f('=AND(A1>80,A2="华东")'),
+      '表!B4': f('=OR(A1<0,NOT(TRUE))'), '表!B5': f('=ROUNDUP(A3,1)'), '表!B11': f('=ROUNDDOWN(A3,1)'), '表!B6': f('=COUNTA(A1:A4)'),
+      '表!B7': f('=A4'), '表!B8': f('=A2="华东"'), '表!B9': f('=IF(A1>90,1)'), '表!B10': f('="合计："&0.1+0.2'),
+    }));
+    assert.deepEqual(['B1', 'B2', 'B3', 'B4', 'B5', 'B11', 'B6', 'B7', 'B8', 'B9', 'B10'].map((address) => at('表', address)),
+      ['及格', '华东区85', true, false, 2.4, 2.3, 3, 0, true, false, '合计：0.3']);
   });
 
   test('an edit LibreOffice cannot calculate still leaves results in the file', async () => {
